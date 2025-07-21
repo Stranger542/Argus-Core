@@ -52,7 +52,7 @@ if VIDEO_SOURCE is None:
 EVIDENCE_SECONDS = 5  # Change to 5, 7, etc. as needed
 
 ALERT_THRESHOLD = 0.3 # Probability threshold for a frame to be considered a 'hit'
-MIN_HITS_FOR_ALERT = 6 # Minimum number of consecutive 'hits' to trigger an alert
+MIN_HITS_FOR_ALERT = 3 # Minimum number of consecutive 'hits' to trigger an alert
 LOCATION = "CCTV Camera 1 / Main Entrance" # Location for alerts
 
 
