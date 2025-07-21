@@ -1,0 +1,8 @@
+torch
+torchvision
+opencv-python
+tqdm
+ultralytics
+Pillow
+kagglehub
+scikit-learn
