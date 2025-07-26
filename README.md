@@ -1,4 +1,4 @@
-# Argus Core: Automated Crime Detection in CCTV Footage
+# Argus Core: Automated Crime Detection using CCTV Footage
 
 ## Overview
 Argus Core is a Python-based system for real-time Crime/violence detection in CCTV video streams. It uses deep learning to analyze video, automatically saves evidence clips, and sends email alerts with video attachments when crime/violence is detected.
