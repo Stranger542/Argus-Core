@@ -38,6 +38,8 @@ pip install -r requirements.txt
 - Download the RWF-2000 dataset or your own CCTV videos.
 - Place them in the `datasets/` directory as described in the code comments.
 - The default test path is `datasets/rwf_2000/test/Fight`.
+- Run the  `download_nulti_event_datasets.py` to download and organise the `ucf-crime dataset` for training and testing.
+
 
 ### 4. Configure Environment Variables
 Create a `.env` file in the project root with the following:
