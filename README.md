@@ -1,12 +1,12 @@
-# Argus Core: Automated Fight Detection in CCTV Footage
+# Argus Core: Automated Crime Detection using CCTV Footage
 
 ## Overview
-Argus Core is a Python-based system for real-time fight/violence detection in CCTV video streams. It uses deep learning to analyze video, automatically saves evidence clips, and sends email alerts with video attachments when a fight is detected.
+Argus Core is a Python-based system for real-time Crime/violence detection in CCTV video streams. It uses deep learning to analyze video, automatically saves evidence clips, and sends email alerts with video attachments when crime/violence is detected.
 
 ---
 
 ## Features
-- **Real-time fight detection** using a trained action recognition model
+- **Real-time Crime/Violence detection** using a trained action recognition model
 - **Evidence video saving**: Automatically saves the last N seconds of video when a fight is detected
 - **Email alerts**: Sends an email with the evidence video attached
 - **Configurable detection sensitivity and evidence length**
