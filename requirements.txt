@@ -6,3 +6,13 @@ ultralytics
 Pillow
 kagglehub
 scikit-learn
+python-dotenv
+fastapi
+uvicorn[standard]
+psycopg2-binary
+sqlalchemy
+pydantic
+requests
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
