@@ -1,79 +1,77 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { loginUser } from '../services/api';
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import '../App.css'
 
-// A simple SVG spinner component for the loading state
-const Spinner = () => (
-  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-  </svg>
-);
+interface Props {
+  isDark?: boolean
+}
 
-const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // State for loading
-  const navigate = useNavigate();
+const LoginPage: React.FC<Props> = ({ isDark }) => {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true); // Start loading
-    try {
-      const response = await loginUser(email, password);
-      localStorage.setItem('authToken', response.data.access_token);
-      navigate('/');
-      window.location.reload();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
-    } finally {
-      setIsLoading(false); // Stop loading
+  useEffect(() => {
+    if (location.state?.message) {
+      setMessage(location.state.message)
+      window.history.replaceState({}, document.title)
     }
-  };
+  }, [location])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (email && password) navigate('/')
+  }
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4">
-      <div className="w-full max-w-md">
-        <form onSubmit={handleSubmit} className="bg-gray-900/70 backdrop-blur p-8 md:p-10 rounded-2xl shadow-2xl border border-gray-800">
-          <h2 className="text-4xl font-extrabold mb-8 text-center text-white">Welcome Back</h2>
-          
-          {error && <p className="bg-red-500/80 text-white p-3 rounded-lg mb-6 text-center">{error}</p>}
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', minHeight: 'calc(100vh - 60px)' }}>
+      <form onSubmit={handleSubmit} style={{ 
+        background: 'var(--glass-bg)', padding: '2.5rem', borderRadius: '20px', backdropFilter: 'var(--blur)', 
+        border: '1px solid var(--glass-border)', width: '100%', maxWidth: '400px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' 
+      }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: 'var(--accent-violet)', fontSize: '1.5rem' }}>Welcome Back</h2>
+        
+        {message && <p style={{ color: 'var(--accent-blue)', textAlign: 'center', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(0, 191, 255, 0.2)', borderRadius: '8px', border: '1px solid var(--accent-blue)' }}>{message}</p>}
 
-          <div className="mb-6">
-            <label className="block text-gray-200 mb-2 font-medium" htmlFor="email">Email</label>
-            <input
-              type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400 transition-all placeholder-gray-400" required
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div className="mb-8">
-            <label className="block text-gray-200 mb-2 font-medium" htmlFor="password">Password</label>
-            <input
-              type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400 transition-all placeholder-gray-400" required
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full bg-teal-500 hover:bg-teal-600 disabled:bg-teal-800 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center shadow-lg"
-          >
-            {isLoading ? <Spinner /> : 'Login'}
-          </button>
-
-          <p className="text-center mt-6 text-gray-400">
-            No account? <Link to="/register" className="text-teal-400 hover:underline font-medium">Register here</Link>
-          </p>
-        </form>
-      </div>
+        <input
+          type="email"
+          placeholder="Email@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ 
+            width: '100%', padding: '12px 16px', marginBottom: '1rem', border: '1px solid var(--glass-border)', 
+            borderRadius: '12px', background: 'var(--glass-bg)', color: 'var(--text-primary)', fontSize: '1rem', 
+            backdropFilter: 'var(--blur)' 
+          }}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={{ 
+            width: '100%', padding: '12px 16px', marginBottom: '1rem', border: '1px solid var(--glass-border)', 
+            borderRadius: '12px', background: 'var(--glass-bg)', color: 'var(--text-primary)', fontSize: '1rem', 
+            backdropFilter: 'var(--blur)' 
+          }}
+          required
+        />
+        <button type="submit" style={{ 
+          width: '100%', padding: '12px', background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-violet))', 
+          border: 'none', borderRadius: '12px', color: 'var(--text-primary)', fontSize: '1rem', cursor: 'pointer', 
+          boxShadow: '0 4px 15px rgba(0, 191, 255, 0.3)', transition: 'all 0.3s' 
+        }}>
+          Login
+        </button>
+        <p style={{ textAlign: 'center', marginTop: '1rem', color: 'var(--text-secondary)' }}>
+          No account? <Link to="/register" style={{ color: 'var(--accent-red)', textDecoration: 'none', fontWeight: '500' }}>Register here</Link>
+        </p>
+      </form>
     </div>
-  );
-};
+  )
+}
 
-export default LoginPage;
+export default LoginPage

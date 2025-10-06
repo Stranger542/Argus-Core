@@ -40,3 +40,111 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Expand Center Display & Flush Sidebars */
+.main-layout {
+  margin: 0;  /* Remove top margin to hug header */
+  padding: 0;  /* No padding for edge-to-edge */
+}
+
+.sidebar {
+  width: 280px;  /* Unchanged width */
+  margin: 0;  /* Flush to edges—no margins */
+  padding: 20px 10px;  /* Reduce horizontal padding for closeness */
+  border-radius: 0;  /* Straight edges to borders (or keep 20px for slight round) */
+}
+
+.sidebar.left {
+  border-right-width: 1px;  /* Thin border only */
+  border-left: none;  /* Flush left */
+}
+
+.sidebar.right {
+  border-left-width: 1px;
+  border-right: none;  /* Flush right */
+}
+
+.center-video {
+  padding: 40px 0;  /* Vertical only—horizontal 0 for full width */
+  flex: 1;  /* Takes all remaining space */
+}
+
+.video-container {
+  height: 80vh;  /* Increased from 60vh for larger camera display */
+  max-width: none;  /* Full width available */
+  margin: 0 auto;  /* Center if needed */
+}
+
+/* Responsive - Maintain on mobile */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+  }
+  .video-container {
+    height: 60vh;  /* Smaller on mobile */
+  }
+}
+.video-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  padding: 12px;
+  background: var(--glass-bg);
+  border-radius: 12px;
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+}
+
+/* Use rectangular buttons with rounded corners instead of circular */
+.video-controls button {
+  width: auto;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--accent-blue);
+  border: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.video-controls button:hover {
+  background: var(--accent-violet);
+  transform: scale(1.1);
+  box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);
+}
+
+.video-controls button::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s;
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  z-index: 10;
+}
+
+.video-controls button:hover::after {
+  opacity: 1;
+  visibility: visible;
+}

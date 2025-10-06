@@ -1,285 +1,226 @@
-// src/pages/HomePage.tsx
-import React, { useState, useEffect } from 'react';
-import CameraSidebar from '../components/CameraSidebar';
-import { getIncidents, simulateCamera } from '../services/api';
-
-// Enhanced video feed component with monitoring features
-const VideoFeed: React.FC<{ 
-  selectedCameraId: number | null;
-  isStreaming: boolean;
-  zoomLevel: number;
-  onToggleStream: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onAnalyze: () => void;
-  isAnalyzing: boolean;
-  lastResult?: { first_prediction?: string; probability?: number; alert_types?: string[] } | null;
-}> = ({ selectedCameraId, isStreaming, zoomLevel, onToggleStream, onZoomIn, onZoomOut, onAnalyze, isAnalyzing, lastResult }) => {
-  const [detectionStatus, setDetectionStatus] = useState<string>('Monitoring...');
-  const [lastAlert, setLastAlert] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Simulate detection status updates
-    const interval = setInterval(() => {
-      if (isStreaming) {
-        const statuses = [
-          'Monitoring...',
-          'Analyzing frames...',
-          'No anomalies detected',
-          'Processing video stream...'
-        ];
-        setDetectionStatus(statuses[Math.floor(Math.random() * statuses.length)]);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isStreaming]);
-
-  if (!selectedCameraId) {
-    return (
-      <div className="bg-black flex items-center justify-center h-full rounded-lg border-2 border-dashed border-gray-600">
-        <div className="text-center">
-          <div className="text-6xl mb-4">📹</div>
-          <p className="text-gray-400 text-lg">Please select a camera from the sidebar</p>
-          <p className="text-gray-500 text-sm mt-2">Choose a camera to start monitoring</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-black w-full h-full rounded-lg relative overflow-hidden">
-      {/* Video Stream Area */}
-      <div className="w-full h-full flex items-center justify-center relative">
-        {isStreaming ? (
-          <div className="relative">
-            {/* Simulated video feed */}
-            <div 
-              className="bg-gray-800 border-2 border-gray-600 rounded-lg flex items-center justify-center"
-              style={{ 
-                width: `${300 + zoomLevel * 50}px`, 
-                height: `${200 + zoomLevel * 35}px` 
-              }}
-            >
-              <div className="text-center text-gray-400">
-                <div className="text-4xl mb-2">📹</div>
-                <p className="text-sm">Camera {selectedCameraId}</p>
-                <p className="text-xs">Live Stream</p>
-              </div>
-            </div>
-            
-            {/* Detection overlay */}
-            <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
-              LIVE
-            </div>
-          </div>
-        ) : (
-          <div className="text-center text-gray-500">
-            <div className="text-6xl mb-4">⏸️</div>
-            <p className="text-lg">Stream Paused</p>
-            <p className="text-sm">Click play to start monitoring</p>
-          </div>
-        )}
-      </div>
-
-      {/* Status Information */}
-      <div className="absolute top-4 left-4 bg-black bg-opacity-75 p-3 rounded-lg">
-        <h3 className="text-white font-bold text-sm">Camera {selectedCameraId}</h3>
-        <p className="text-gray-300 text-xs">{detectionStatus}</p>
-        {lastAlert && (
-          <p className="text-red-400 text-xs mt-1">⚠️ {lastAlert}</p>
-        )}
-      </div>
-
-      {/* Zoom Level Indicator */}
-      <div className="absolute top-4 right-4 bg-black bg-opacity-75 p-2 rounded-lg">
-        <p className="text-white text-xs">Zoom: {zoomLevel}x</p>
-      </div>
-
-      {/* Feed Controls */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-        <div className="bg-black bg-opacity-75 p-3 rounded-lg flex space-x-3">
-          <button 
-            onClick={onToggleStream}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isStreaming 
-                ? 'bg-red-500 hover:bg-red-600 text-white' 
-                : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
-          >
-            {isStreaming ? '⏸️ Pause' : '▶️ Play'}
-          </button>
-          
-          <button 
-            onClick={onZoomOut}
-            disabled={zoomLevel <= 0}
-            className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm transition-colors"
-          >
-            🔍- Zoom Out
-          </button>
-          
-          <button 
-            onClick={onZoomIn}
-            disabled={zoomLevel >= 5}
-            className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm transition-colors"
-          >
-            🔍+ Zoom In
-          </button>
-
-          <button
-            onClick={onAnalyze}
-            disabled={!selectedCameraId || isAnalyzing}
-            className="bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm transition-colors"
-          >
-            {isAnalyzing ? 'Analyzing…' : 'Analyze Random Clip'}
-          </button>
-        </div>
-      </div>
-
-      {/* Detection Status Bar */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-green-500 to-blue-500 h-1">
-        <div className="h-full bg-white opacity-30 animate-pulse"></div>
-      </div>
-
-      {/* Last analysis result */}
-      {lastResult && (
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black/75 text-white px-4 py-2 rounded-lg text-xs">
-          <span>First: {lastResult.first_prediction || 'N/A'} • Prob: {lastResult.probability?.toFixed(2) ?? '—'} • Alerts: {lastResult.alert_types?.join(', ') || 'None'}</span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Recent incidents component
-const RecentIncidents: React.FC = () => {
-  const [incidents, setIncidents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchIncidents = async () => {
-      try {
-        const response = await getIncidents();
-        setIncidents(response.data.slice(0, 5)); // Show only recent 5
-      } catch (error) {
-        console.error('Failed to fetch incidents:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchIncidents();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="bg-gray-800 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold mb-3 text-teal-300">Recent Incidents</h3>
-        <p className="text-gray-400">Loading...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-gray-800 p-4 rounded-lg">
-      <h3 className="text-lg font-semibold mb-3 text-teal-300">Recent Incidents</h3>
-      {incidents.length === 0 ? (
-        <p className="text-gray-400 text-sm">No recent incidents</p>
-      ) : (
-        <div className="space-y-2">
-          {incidents.map((incident) => (
-            <div key={incident.id} className="bg-gray-700 p-2 rounded text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-white font-medium">{incident.event_type}</span>
-                <span className="text-gray-400 text-xs">
-                  {new Date(incident.started_at).toLocaleTimeString()}
-                </span>
-              </div>
-              <div className="text-gray-400 text-xs">
-                Camera {incident.camera_id} • Score: {incident.score?.toFixed(2) || 'N/A'}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'  // For redirect
+import './App.css'  // Global styles
 
 const HomePage: React.FC = () => {
-  const [selectedCameraId, setSelectedCameraId] = useState<number | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [lastResult, setLastResult] = useState<any>(null);
+  const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)  // For play/pause toggle
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false)  // For dialog
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const navigate = useNavigate()  // For navigation
 
-  const handleToggleStream = () => {
-    setIsStreaming(!isStreaming);
-  };
+  // Mock data from screenshots
+  const feeds = [
+    { id: 1, name: 'Feed 1 - Lobby (Live)' },
+    { id: 2, name: 'Feed 2 - Parking (Live)' },
+    { id: 3, name: 'Feed 3 - Entrance (Offline)' },
+    { id: 4, name: 'Feed 4 - Warehouse (Live)' },
+    { id: 5, name: 'Feed 5 - Roof (Live)' }
+  ]
 
-  const handleZoomIn = () => {
-    if (zoomLevel < 5) {
-      setZoomLevel(zoomLevel + 1);
+  const timestamps = [
+    { id: 1, event: 'Robbery Detected', time: 'Oct 2, 2025 2:30 PM' },
+    { id: 2, event: 'Break-in Attempt', time: 'Oct 1, 2025 4:45 PM' },
+    { id: 3, event: 'Unauthorized Entry', time: 'Sep 30, 2025 9:00 AM' },
+    { id: 4, event: 'Anomaly Detected', time: 'Sep 29, 2025 11:15 AM' }
+  ]
+
+  const handleFeedSelect = (feedName: string) => {
+    setSelectedFeed(feedName)
+    if (videoRef.current) videoRef.current.src = 'placeholder.mp4'  // Mock stream
+  }
+
+  const handleTimestampSelect = (time: string) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = Math.random() * 60  // Mock seek
+      console.log(`Seeking to ${time}`)
     }
-  };
+  }
 
-  const handleZoomOut = () => {
-    if (zoomLevel > 0) {
-      setZoomLevel(zoomLevel - 1);
+  // Functions for 5-button controls
+  const togglePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause()
+      } else {
+        videoRef.current.play()
+      }
+      setIsPlaying(!isPlaying)
     }
-  };
+  }
 
-  const handleAnalyze = async () => {
-    if (!selectedCameraId) return;
-    setIsAnalyzing(true);
-    try {
-      const res = await simulateCamera(selectedCameraId, true);
-      setLastResult({
-        first_prediction: res.data.first_prediction,
-        probability: res.data.probability,
-        alert_types: res.data.alert_types,
-      });
-      setIsStreaming(true);
-    } catch (e) {
-      console.error('Simulation failed', e);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  const rewind = () => {
+    if (videoRef.current) videoRef.current.currentTime -= 10
+  }
+
+  const fastForward = () => {
+    if (videoRef.current) videoRef.current.currentTime += 10
+  }
+
+  const previousVideo = () => {
+    console.log('Switch to previous video')  // Mock - replace with real logic later
+  }
+
+  const nextVideo = () => {
+    console.log('Switch to next video')  // Mock - replace with real logic later
+  }
+
+  // Logout handlers
+  const handleLogoutConfirm = () => {
+    setShowLogoutDialog(false)
+    navigate('/login')  // Redirect to login
+  }
+
+  const handleLogoutCancel = () => {
+    setShowLogoutDialog(false)  // Close dialog, stay on page
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Main Monitoring Area */}
-      <div className="flex flex-col lg:flex-row gap-6" style={{ height: 'calc(100vh - 200px)' }}>
-        {/* Camera Sidebar */}
-        <div className="w-full lg:w-1/4">
-          <CameraSidebar
-            selectedCameraId={selectedCameraId}
-            onSelectCamera={(id: number) => setSelectedCameraId(id)}
-          />
-        </div>
-        
-        {/* Video Feed */}
-        <div className="w-full lg:w-3/4 h-full">
-          <VideoFeed 
-            selectedCameraId={selectedCameraId}
-            isStreaming={isStreaming}
-            zoomLevel={zoomLevel}
-            onToggleStream={handleToggleStream}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onAnalyze={handleAnalyze}
-            isAnalyzing={isAnalyzing}
-            lastResult={lastResult}
-          />
-        </div>
-      </div>
+    <div className="main-layout" style={{ marginTop: '30px' }}>  {/* Moved down to avoid header overlap */}
+      {/* Left Sidebar */}
+      <aside className="sidebar left">
+        <h2>Active Feeds</h2>
+        <ul className="feed-list">
+          {feeds.map((feed) => (
+            <li key={feed.id} className={selectedFeed === feed.name ? 'feed-item selected' : 'feed-item'}>
+              <button onClick={() => handleFeedSelect(feed.name)}>{feed.name}</button>
+            </li>
+          ))}
+        </ul>
+      </aside>
 
-      {/* Bottom Panel with Recent Incidents */}
-      <div className="w-full">
-        <RecentIncidents />
-      </div>
+      {/* Center Video */}
+      <main className="center-video" style={{ flex: 1, padding: '20px 5px' }}>  {/* Full flex to occupy space */}
+        {selectedFeed ? (
+          <>
+            <div className="video-container" style={{ height: '80vh' }}>  {/* Larger height to occupy more space */}
+              <video ref={videoRef} className="video-player" controls autoPlay muted>
+                <source src="placeholder.mp4" type="video/mp4" />
+                Live feed: {selectedFeed}
+              </video>
+              <div className="anomaly-overlay">Anomaly Detected</div>  {/* Red box overlay */}
+            </div>
+            <div className="video-controls">
+              <button onClick={previousVideo} data-tooltip="Previous Video"> ⏮ </button>
+              <button onClick={rewind} data-tooltip="Rewind 10s">⏪</button>
+              <button onClick={togglePlayPause} data-tooltip={isPlaying ? "Pause" : "Play"}>
+                {isPlaying ? '⏸️' : '▶️'}
+              </button>
+              <button onClick={fastForward} data-tooltip="Forward 10s">⏩</button>
+              <button onClick={nextVideo} data-tooltip="Next Video">⏭</button>
+            </div>
+          </>
+        ) : (
+          <div className="placeholder" style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Select a feed to view live surveillance</div>
+        )}
+      </main>
+
+      {/* Right Sidebar */}
+      <aside className="sidebar right">
+        <h2>Approved Timestamps</h2>
+        <ul className="timestamp-list">
+          {timestamps.map((ts) => (
+            <li key={ts.id} className="timestamp-item">
+              <button onClick={() => handleTimestampSelect(ts.time)}>
+                <div className="timestamp-event">{ts.event}</div>
+                <div className="timestamp-time">{ts.time}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      {/* Logout Button - Bottom Right Fixed - Moved up */}
+      <button
+        onClick={() => setShowLogoutDialog(true)}
+        style={{
+          position: 'fixed',
+          bottom: '80px',  // Moved up to avoid overlap
+          right: '50px',
+          background: 'var(--accent-red)',
+          color: 'var(--text-primary)',
+          border: 'none',
+          borderRadius: '50%',
+          width: '50px',
+          height: '50px',
+          fontSize: '1.2rem',
+          cursor: 'pointer',
+          boxShadow: '0 4px 15px rgba(215, 38, 56, 0.4)',
+          transition: 'all 0.3s ease',
+          zIndex: 100
+        }}
+        title="Logout"
+        aria-label="Logout"
+      >
+        ⏻
+      </button>
+
+      {/* Centered Dialog Box */}
+      {showLogoutDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 200
+          }}
+          onClick={handleLogoutCancel}  // Close on outside click
+        >
+          <div
+            style={{
+              background: 'var(--glass-bg)',
+              padding: '2rem',
+              borderRadius: '20px',
+              backdropFilter: 'var(--blur)',
+              border: '1px solid var(--glass-border)',
+              textAlign: 'center',
+              maxWidth: '300px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}  // Prevent close on dialog click
+          >
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem' }}>Are you sure you want to log out?</h3>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                onClick={handleLogoutConfirm}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  background: 'var(--accent-red)',
+                  color: 'var(--text-primary)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                Yes
+              </button>
+              <button
+                onClick={handleLogoutCancel}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  background: 'var(--accent-blue)',
+                  color: 'var(--text-primary)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
-};
+  )
+}
 
-export default HomePage;
+export default HomePage

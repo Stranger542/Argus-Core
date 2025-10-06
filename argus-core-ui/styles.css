@@ -1,0 +1,326 @@
+/* src/styles.css - Glassmorphic Dashboard Styles */
+
+/* CSS Variables for Theming */
+:root {
+  /* Dark Mode Palette */
+  --bg-base: #0D0D0D;
+  --bg-secondary: #1F1F1F;
+  --accent-red: #D72638;
+  --accent-violet: #8A2BE2;
+  --accent-blue: #00BFFF;
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --blur: blur(10px);
+}
+
+.light {
+  /* Light Mode Palette */
+  --bg-base: #FAFAFA;
+  --bg-secondary: #E0E0E0;
+  --accent-red: #FF4C4C;
+  --accent-violet: #9B59B6;
+  --accent-blue: #3498DB;
+  --text-primary: #333333;
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --glass-bg: rgba(0, 0, 0, 0.05);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --blur: blur(10px);
+}
+
+/* Global Reset and Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html {
+  height: 100%;
+}
+
+/* Header with Theme Toggle */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 100;
+  transition: background 0.3s ease, border 0.3s ease;
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+
+.theme-toggle {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  backdrop-filter: var(--blur);
+}
+
+.theme-toggle:hover {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  transform: scale(1.05);
+}
+
+/* Main Layout */
+.main-layout {
+  display: flex;
+  height: calc(100vh - 60px);
+  margin-top: 60px;
+  overflow: hidden;
+}
+
+/* Sidebars - Glassmorphic, Scrollable */
+.sidebar {
+  width: 280px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border-right: 1px solid var(--glass-border);
+  padding: 20px;
+  overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+.sidebar.right {
+  border-right: none;
+  border-left: 1px solid var(--glass-border);
+}
+
+.sidebar h2 {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  color: var(--accent-violet);
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.feed-list, .timestamp-list {
+  list-style: none;
+}
+
+.feed-item, .timestamp-item {
+  margin-bottom: 12px;
+}
+
+.feed-item button, .timestamp-item button {
+  width: 100%;
+  padding: 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: var(--blur);
+  font-size: 0.95rem;
+}
+
+.feed-item button:hover, .timestamp-item button:hover {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  transform: translateX(4px);
+  box-shadow: 0 4px 15px rgba(0, 191, 255, 0.3);
+}
+
+.feed-item button.selected {
+  background: var(--accent-violet);
+  border-color: var(--accent-violet);
+  box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+}
+
+.timestamp-item button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.timestamp-event {
+  font-weight: bold;
+  color: var(--accent-red);
+  margin-bottom: 4px;
+}
+
+.timestamp-time {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Center Video Section */
+.center-video {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: radial-gradient(circle at center, rgba(138, 43, 226, 0.1), transparent);
+  transition: background 0.3s ease;
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  height: 60vh;
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.video-player {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 20px;
+}
+
+/* Controls */
+.video-controls {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+  padding: 15px;
+  background: var(--glass-bg);
+  border-radius: 15px;
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+}
+
+.video-controls button {
+  padding: 0 16px;
+  height: 40px;
+  background: var(--accent-blue);
+  border: none;
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.18s ease;
+  min-width: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.video-controls button:hover {
+  background: var(--accent-violet);
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(138, 43, 226, 0.3);
+}
+
+.placeholder {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  padding: 40px;
+}
+
+/* Scrollbar Styling for Cool Look */
+.sidebar::-webkit-scrollbar,
+.center-video::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: var(--glass-bg);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--accent-blue);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-violet);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 220px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: 200px;
+    border: none;
+  }
+  
+  .sidebar.right {
+    border-left: none;
+  }
+  
+  .center-video {
+    padding: 20px 10px;
+  }
+  
+  .video-container {
+    height: 50vh;
+  }
+  
+  .header {
+    padding: 0 10px;
+  }
+  
+  .video-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+/* Animations for User-Friendly Feel */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar, .center-video {
+  animation: fadeIn 0.5s ease-out;
+}
+
+button {
+  transition: transform 0.2s ease;
+}
