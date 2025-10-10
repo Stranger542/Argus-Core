@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'  // New import
+import { Navigate } from 'react-router-dom'
 import './App.css'
 
 function App() {
@@ -51,8 +52,9 @@ function App() {
           </label>
         </header>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element ={<Navigate to="/login" replace/>} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/feed" element={<HomePage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>
       </div>

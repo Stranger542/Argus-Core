@@ -22,7 +22,7 @@ const LoginPage: React.FC<Props> = ({ isDark }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (email && password) navigate('/')
+    if (email && password) navigate('/feed')
   }
 
   return (
