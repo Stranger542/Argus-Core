@@ -1,11 +1,11 @@
 import axios from 'axios';
 
 // Load API base URL from Vite env, with a safe default for local dev
-const API_BASE_URL: string = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL: string = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8000';
 
 if (!(import.meta as any)?.env?.VITE_API_URL) {
   // eslint-disable-next-line no-console
-  console.warn('[Argus-Core] VITE_API_URL not set. Falling back to http://localhost:8080');
+  console.warn('[Argus-Core] VITE_API_URL not set. Falling back to http://localhost:8000');
 }
 
 // Centralized Axios client
@@ -88,4 +88,8 @@ export const getUserInfo = () => {
 // Simulation Function: run server-side analysis on random dataset video for a camera
 export const simulateCamera = (cameraId: number, sendEmail = true) => {
   return apiClient.post(`/simulate/cameras/${cameraId}?send_email=${sendEmail}`);
+};
+
+export const getRandomVideo = () => {
+  return apiClient.get<{ video_url: string }>('/api/videos/random');
 };

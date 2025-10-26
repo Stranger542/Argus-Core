@@ -248,10 +248,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.staticfiles import StaticFiles
+
 # This needs to run to create the tables in the database
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    # Mount the datasets directory to serve videos
+    datasets_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', 'datasets'))
+    app.mount("/datasets", StaticFiles(directory=datasets_dir), name="datasets")
     # Ensure we can import from src/ for simulation utilities
     project_root = osp.abspath(osp.join(osp.dirname(__file__), '..'))
     src_dir = osp.join(project_root, 'src')
@@ -356,26 +361,44 @@ def download_clip(clip_id: int, db: Session = Depends(get_db), user: User = Depe
         raise HTTPException(410, detail="clip file missing")
     return FileResponse(path=clip.file_path, filename=os.path.basename(clip.file_path))
 
-# --- Simulation Route: Analyze random dataset video for a camera ---
-
-
-def _pick_random_video(base_dir: str = "datasets/ucf_crime/test") -> str:
+def _pick_random_video(base_dir: str = "datasets/ucf_crime") -> str:
     base_abs = osp.abspath(osp.join(osp.dirname(__file__), '..', base_dir))
     if not osp.exists(base_abs):
         return ""
     candidates = []
-    for cls in os.listdir(base_abs):
-        cls_dir = osp.join(base_abs, cls)
-        if not osp.isdir(cls_dir):
+    for type_dir in os.listdir(base_abs): # This will be 'test' or 'train'
+        type_dir_abs = osp.join(base_abs, type_dir)
+        if not osp.isdir(type_dir_abs):
             continue
-        for f in os.listdir(cls_dir):
-            if f.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
-                candidates.append(osp.join(cls_dir, f))
+        for cls in os.listdir(type_dir_abs): # This will be 'Abuse', 'Arrest', etc.
+            cls_dir = osp.join(type_dir_abs, cls)
+            if not osp.isdir(cls_dir):
+                continue
+            for f in os.listdir(cls_dir):
+                if f.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
+                    candidates.append(osp.join(cls_dir, f))
     return random.choice(candidates) if candidates else ""
+
+@app.get("/api/videos/random")
+def get_random_video():
+    video_path = _pick_random_video()
+    if not video_path:
+        raise HTTPException(404, detail="No test videos found under datasets/ucf_crime")
+    
+    # Convert the absolute path to a relative path that the frontend can use
+    base_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', 'datasets'))
+    relative_path = osp.relpath(video_path, base_dir)
+    
+    # Replace backslashes with forward slashes for URL compatibility
+    video_url = f"/datasets/{relative_path.replace('\\', '/')}"
+    
+    return {"video_url": video_url}
+
+# --- Simulation Route: Analyze random dataset video for a camera ---
 
 
 @app.post("/simulate/cameras/{camera_id}")
-def simulate_camera_run(camera_id: int, send_email: bool = True, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def simulate_camera_run(camera_id: int, send_email: bool = True, db: Session = Depends(get_db)):
     # Import ML bits lazily to avoid reload/import issues
     try:
         from src.anomaly_detection import predict_anomaly  # type: ignore
@@ -401,7 +424,7 @@ def simulate_camera_run(camera_id: int, send_email: bool = True, db: Session = D
 
     video_path = _pick_random_video()
     if not video_path:
-        raise HTTPException(404, detail="No test videos found under datasets/ucf_crime/test")
+        raise HTTPException(404, detail="No test videos found under datasets/ucf_crime")
 
     try:
         cap = cv2.VideoCapture(video_path)

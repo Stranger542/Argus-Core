@@ -1,13 +1,15 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'  // For redirect
-import './App.css'  // Global styles
+import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';  // For redirect
+import './App.css';  // Global styles
+import { getRandomVideo } from '../services/api'; // Import the new API function
 
 const HomePage: React.FC = () => {
-  const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)  // For play/pause toggle
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false)  // For dialog
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const navigate = useNavigate()  // For navigation
+  const [selectedFeed, setSelectedFeed] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null); // State for the video URL
+  const [isPlaying, setIsPlaying] = useState(false);  // For play/pause toggle
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);  // For dialog
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const navigate = useNavigate();  // For navigation
 
   // Mock data from screenshots
   const feeds = [
@@ -16,64 +18,76 @@ const HomePage: React.FC = () => {
     { id: 3, name: 'Feed 3 - Entrance (Offline)' },
     { id: 4, name: 'Feed 4 - Warehouse (Live)' },
     { id: 5, name: 'Feed 5 - Roof (Live)' }
-  ]
+  ];
 
   const timestamps = [
     { id: 1, event: 'Robbery Detected', time: 'Oct 2, 2025 2:30 PM' },
     { id: 2, event: 'Break-in Attempt', time: 'Oct 1, 2025 4:45 PM' },
     { id: 3, event: 'Unauthorized Entry', time: 'Sep 30, 2025 9:00 AM' },
     { id: 4, event: 'Anomaly Detected', time: 'Sep 29, 2025 11:15 AM' }
-  ]
+  ];
 
-  const handleFeedSelect = (feedName: string) => {
-    setSelectedFeed(feedName)
-    if (videoRef.current) videoRef.current.src = 'placeholder.mp4'  // Mock stream
-  }
+  const handleFeedSelect = async (feedName: string) => {
+    setSelectedFeed(feedName);
+    try {
+      const response = await getRandomVideo();
+      const fullVideoUrl = `http://localhost:8000${response.data.video_url}`;
+      setVideoUrl(fullVideoUrl);
+      if (videoRef.current) {
+        videoRef.current.src = fullVideoUrl;
+        videoRef.current.play(); // Autoplay the new video
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error("Error fetching random video:", error);
+      // Handle error (e.g., show a message to the user)
+    }
+  };
 
   const handleTimestampSelect = (time: string) => {
     if (videoRef.current) {
-      videoRef.current.currentTime = Math.random() * 60  // Mock seek
-      console.log(`Seeking to ${time}`)
+      videoRef.current.currentTime = Math.random() * 60;  // Mock seek
+      console.log(`Seeking to ${time}`);
     }
-  }
+  };
 
   // Functions for 5-button controls
   const togglePlayPause = () => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.pause()
+        videoRef.current.pause();
       } else {
-        videoRef.current.play()
+        videoRef.current.play();
       }
-      setIsPlaying(!isPlaying)
+      setIsPlaying(!isPlaying);
     }
-  }
+  };
 
   const rewind = () => {
-    if (videoRef.current) videoRef.current.currentTime -= 10
-  }
+    if (videoRef.current) videoRef.current.currentTime -= 10;
+  };
 
   const fastForward = () => {
-    if (videoRef.current) videoRef.current.currentTime += 10
-  }
+    if (videoRef.current) videoRef.current.currentTime += 10;
+  };
 
   const previousVideo = () => {
-    console.log('Switch to previous video')  // Mock - replace with real logic later
-  }
+    console.log('Switch to previous video');  // Mock - replace with real logic later
+  };
 
   const nextVideo = () => {
-    console.log('Switch to next video')  // Mock - replace with real logic later
-  }
+    console.log('Switch to next video');  // Mock - replace with real logic later
+  };
 
   // Logout handlers
   const handleLogoutConfirm = () => {
-    setShowLogoutDialog(false)
-    navigate('/login')  // Redirect to login
-  }
+    setShowLogoutDialog(false);
+    navigate('/login');  // Redirect to login
+  };
 
   const handleLogoutCancel = () => {
-    setShowLogoutDialog(false)  // Close dialog, stay on page
-  }
+    setShowLogoutDialog(false);  // Close dialog, stay on page
+  };
 
   return (
     <div className="main-layout" style={{ marginTop: '30px' }}>  {/* Moved down to avoid header overlap */}
@@ -95,7 +109,7 @@ const HomePage: React.FC = () => {
           <>
             <div className="video-container" style={{ height: '80vh' }}>  {/* Larger height to occupy more space */}
               <video ref={videoRef} className="video-player" controls autoPlay muted>
-                <source src="placeholder.mp4" type="video/mp4" />
+                {videoUrl && <source src={videoUrl} type="video/mp4" />}
                 Live feed: {selectedFeed}
               </video>
               <div className="anomaly-overlay">Anomaly Detected</div>  {/* Red box overlay */}
@@ -220,7 +234,7 @@ const HomePage: React.FC = () => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default HomePage
+export default HomePage;

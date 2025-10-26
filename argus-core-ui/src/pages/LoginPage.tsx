@@ -1,29 +1,51 @@
-import React, { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import '../App.css'
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { loginUser } from '../services/api'; // Import the loginUser function
+import '../App.css';
 
 interface Props {
-  isDark?: boolean
+  isDark?: boolean;
 }
 
 const LoginPage: React.FC<Props> = ({ isDark }) => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [message, setMessage] = useState<string | null>(null)
-  const navigate = useNavigate()
-  const location = useLocation()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (location.state?.message) {
-      setMessage(location.state.message)
-      window.history.replaceState({}, document.title)
+      setMessage(location.state.message);
+      window.history.replaceState({}, document.title);
     }
-  }, [location])
+  }, [location]);
 
+<<<<<<< Updated upstream
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (email && password) navigate('/feed')
   }
+=======
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null); // Clear previous messages
+    try {
+      const response = await loginUser(email, password);
+      if (response.data.access_token) {
+        localStorage.setItem('authToken', response.data.access_token);
+        navigate('/'); // Redirect to homepage on successful login
+      }
+    } catch (error: any) {
+      if (error.response && error.response.data && error.response.data.detail) {
+        setMessage(error.response.data.detail);
+      } else {
+        setMessage('An unexpected error occurred. Please try again.');
+      }
+      console.error("Login failed:", error);
+    }
+  };
+>>>>>>> Stashed changes
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', minHeight: 'calc(100vh - 60px)' }}>
@@ -33,7 +55,7 @@ const LoginPage: React.FC<Props> = ({ isDark }) => {
       }}>
         <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: 'var(--accent-violet)', fontSize: '1.5rem' }}>Welcome Back</h2>
         
-        {message && <p style={{ color: 'var(--accent-blue)', textAlign: 'center', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(0, 191, 255, 0.2)', borderRadius: '8px', border: '1px solid var(--accent-blue)' }}>{message}</p>}
+        {message && <p style={{ color: 'var(--accent-red)', textAlign: 'center', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(215, 38, 56, 0.2)', borderRadius: '8px', border: '1px solid var(--accent-red)' }}>{message}</p>}
 
         <input
           type="email"
@@ -71,7 +93,7 @@ const LoginPage: React.FC<Props> = ({ isDark }) => {
         </p>
       </form>
     </div>
-  )
-}
+  );
+};
 
-export default LoginPage
+export default LoginPage;
