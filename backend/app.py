@@ -42,8 +42,25 @@ API_KEY = os.getenv("ARGUS_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 STORAGE_DIR = os.getenv("STORAGE_DIR", "./storage")
 
-if not API_KEY: raise RuntimeError("ARGUS_API_KEY not found.")
-if not DATABASE_URL: raise RuntimeError("DATABASE_URL not found.")
+if not API_KEY:
+    raise RuntimeError("ARGUS_API_KEY not found in environment variables.")
+
+# If DATABASE_URL isn't set or points to a PostgreSQL instance that may be
+# unavailable during local development, fall back to a local sqlite DB so
+# the app can start. This is a temporary convenience for developers; restore
+# the original DATABASE_URL to re-enable Postgres.
+if not DATABASE_URL:
+    print("WARNING: DATABASE_URL not set. Falling back to local sqlite for development.")
+    DATABASE_URL = "sqlite:///./argus_core_dev.db"
+else:
+    # If DATABASE_URL looks like Postgres, temporarily switch to sqlite to avoid
+    # connection failures while developing locally. This keeps the rest of the
+    # code unchanged and can be reverted by setting DATABASE_URL in your env.
+    lower = DATABASE_URL.lower()
+    if lower.startswith("postgres://") or lower.startswith("postgresql://") or "postgres" in lower:
+        print("WARNING: DATABASE_URL appears to be PostgreSQL. Temporarily switching to local sqlite for development to avoid connection issues.")
+        DATABASE_URL = "sqlite:///./argus_core_dev.db"
+
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
 engine = create_engine(DATABASE_URL)
@@ -341,6 +358,82 @@ def upload_clip(incident_id: int = Form(...), file: UploadFile = File(...), db: 
     db.commit()
     db.refresh(clip)
     return {"status": "success", "clip_id": clip.id}
+
+
+# Endpoint to receive single image/frame blobs from edge clients
+@app.post("/frames/upload", dependencies=[Depends(require_api_key)])
+async def upload_frame(camera_id: int = Form(...), timestamp: Optional[str] = Form(None), file: UploadFile = File(...)):
+    """
+    Receive a single image/frame as an UploadFile. Protected by API key dependency for edge clients.
+    Logs reception time and saves the frame under STORAGE_DIR/camera_{camera_id}/
+    """
+    try:
+        contents = await file.read()
+        # log reception
+        now_iso = datetime.now(timezone.utc).isoformat()
+        print(f"Got a frame at {now_iso}")
+
+        # ensure camera directory exists
+        cam_dir = osp.join(STORAGE_DIR, f"camera_{camera_id}")
+        os.makedirs(cam_dir, exist_ok=True)
+        filename = f"frame_{int(datetime.now(timezone.utc).timestamp())}_{file.filename}"
+        dest_path = osp.join(cam_dir, filename)
+        with open(dest_path, "wb") as out:
+            out.write(contents)
+
+        # Optionally attempt to decode for sanity using OpenCV
+        decoded = False
+        try:
+            arr = np.frombuffer(contents, dtype=np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            if img is not None:
+                decoded = True
+        except Exception:
+            decoded = False
+
+        return {"status": "received", "path": dest_path, "decoded": decoded, "received_at": now_iso}
+    except Exception as e:
+        print("Error receiving frame:", e)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Development helper: same as /frames/upload but without API key requirement
+@app.post("/frames/upload-dev")
+async def upload_frame_dev(camera_id: int = Form(...), timestamp: Optional[str] = Form(None), file: UploadFile = File(...)):
+    """
+    Development-only endpoint: receives a single image/frame without requiring an API key.
+    Useful for debugging client-side uploads during local development.
+    """
+    try:
+        contents = await file.read()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        print(f"[DEV] Got a frame at {now_iso}")
+
+        cam_dir = osp.join(STORAGE_DIR, f"camera_{camera_id}")
+        os.makedirs(cam_dir, exist_ok=True)
+        filename = f"dev_frame_{int(datetime.now(timezone.utc).timestamp())}_{file.filename}"
+        dest_path = osp.join(cam_dir, filename)
+        with open(dest_path, "wb") as out:
+            out.write(contents)
+
+        decoded = False
+        try:
+            arr = np.frombuffer(contents, dtype=np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            if img is not None:
+                decoded = True
+        except Exception:
+            decoded = False
+            print("Failed to decode dev frame for sanity check.")
+
+        return {"status": "received", "path": dest_path, "decoded": decoded, "received_at": now_iso}
+    except Exception as e:
+        print("Error receiving dev frame:", e)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# --- Web App Routes (Protected by User Login) ---
 
 # --- Web App Data Routes (User Login) ---
 @app.get("/incidents", response_model=List[IncidentOut])

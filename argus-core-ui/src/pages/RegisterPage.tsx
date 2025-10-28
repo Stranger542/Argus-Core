@@ -3,6 +3,17 @@ import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../services/api'; // Import the register function
 import '../App.css';
 
+import { getSupabase } from '../services/supabaseClient'
+
+// Use Supabase to create a new user account
+const registerUser = async (email: string, password: string) => {
+  const client = await getSupabase()
+  const { error } = await client.auth.signUp({ email, password })
+  if (error) throw error
+  return true
+}
+
+// Spinner Component (your code—kept as-is)
 const Spinner = () => (
   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -48,13 +59,9 @@ const RegisterPage: React.FC = () => {
       });
 
     } catch (err: any) {
-      console.error("Registration failed:", err);
-      if (err.response && err.response.data?.detail) {
-        setError(err.response.data.detail); // e.g., "Email already registered"
-      } else {
-        setError("Registration failed. Please try again.");
-      }
-      setIsLoading(false);
+      setError(err?.message || 'Registration failed. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   };
 

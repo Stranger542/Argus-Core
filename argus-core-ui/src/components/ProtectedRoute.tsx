@@ -1,20 +1,12 @@
-// src/components/ProtectedRoute.tsx
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthProvider'
+import type { ReactElement } from 'react'
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
+const ProtectedRoute = ({ children }: { children: ReactElement }) => {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  return children
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const token = localStorage.getItem('authToken');
-
-  if (!token) {
-    // User is not authenticated, redirect to login page
-    return <Navigate to="/login" />;
-  }
-
-  return <>{children}</>;
-};
-
-export default ProtectedRoute;
+export default ProtectedRoute

@@ -1,21 +1,26 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './App.css';
-// Import detectAnomalies and other necessary API functions
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'  // For redirect
+import { useAuth } from '../context/AuthProvider'
 import { getRandomVideo, detectAnomalies, getIncidentById } from '../services/api';
+import './App.css'  // Global styles
 
 const HomePage: React.FC = () => {
-  const [selectedFeed, setSelectedFeed] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)  // For play/pause toggle
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false)  // For dialog
+  const [framesCount, setFramesCount] = useState(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  // Canvas used to capture frames from the video element
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  // requestAnimationFrame id so we can cancel when stopping
+  const rafRef = useRef<number | null>(null)
+  // store captured frame blobs (kept in ref to avoid re-renders)
+  const framesRef = useRef<Blob[]>([])
   const [detectedAnomalies, setDetectedAnomalies] = useState<any[]>([]);
-  // Incident ID is not directly set by /api/detect, remove for now
-  // const [incidentId, setIncidentId] = useState<number | null>(null);
-  const [showAnalysisCompletePopup, setShowAnalysisCompletePopup] = useState(false); // Renamed state for clarity
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const navigate = useNavigate();
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [showAnalysisCompletePopup, setShowAnalysisCompletePopup] = useState(false)
+  const navigate = useNavigate()  // For navigation
+  const { user, signOut } = useAuth()
   const feeds = [ // Mock data
     { id: 1, name: 'Feed 1 - Lobby (Live)' },
     { id: 2, name: 'Feed 2 - Parking (Live)' },
@@ -24,8 +29,15 @@ const HomePage: React.FC = () => {
     { id: 5, name: 'Feed 5 - Roof (Live)' }
   ];
 
+  const timestamps = [
+    { id: 1, event: 'Robbery Detected', time: 'Oct 2, 2025 2:30 PM' },
+    { id: 2, event: 'Break-in Attempt', time: 'Oct 1, 2025 4:45 PM' },
+    { id: 3, event: 'Unauthorized Entry', time: 'Sep 30, 2025 9:00 AM' },
+    { id: 4, event: 'Anomaly Detected', time: 'Sep 29, 2025 11:15 AM' }
+  ];
+
   const handleFeedSelect = async (feedName: string) => {
-    setSelectedFeed(feedName);
+    setSelectedFeed(feedName)
     setDetectedAnomalies([]); // Clear previous anomalies
     setIsPlaying(false);
     setVideoUrl(null);
@@ -61,6 +73,125 @@ const HomePage: React.FC = () => {
     } catch (error: any) {
       console.error("Error during video selection or detection:", error);
       if (error.response && error.response.status === 401) {
+        alert("Session expired. Please log in again.");
+        localStorage.removeItem('access_token'); // Clear token on auth error
+        navigate('/login');
+      } else {
+        const detail = error.response?.data?.detail || error.message || "An unknown error occurred.";
+        alert(`Error during detection: ${detail}`);
+        setDetectedAnomalies([]); // Clear anomalies on error
+      }
+    }
+  };
+  // Capture loop: draw video to canvas and export PNG blob
+  const startCapture = () => {
+    const video = videoRef.current
+    let canvas = canvasRef.current
+    if (!video) return
+
+    console.log('startCapture called', { videoAvailable: !!video })
+
+    if (!canvas) {
+      // create a hidden canvas if one doesn't exist yet
+      canvas = document.createElement('canvas')
+      canvas.style.display = 'none'
+      document.body.appendChild(canvas)
+      canvasRef.current = canvas
+    }
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // size canvas to video dimensions (fallback to client size)
+    canvas.width = video.videoWidth || video.clientWidth || 640
+    canvas.height = video.videoHeight || video.clientHeight || 360
+
+    const loop = () => {
+      if (!video || video.paused || video.ended) return
+      try {
+        // small debug log to show we're attempting to draw (won't spam heavily)
+        if (framesRef.current.length % 30 === 0) {
+          console.log('capture loop running — captured so far', framesRef.current.length)
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      } catch (e) {
+        // drawing might fail if cross-origin restrictions apply
+        console.warn('drawImage failed (CORS?).', e)
+        return
+      }
+
+      // Export current frame as PNG blob (async)
+      canvas.toBlob((blob) => {
+        if (blob) {
+          // store blob for later retrieval; keep recent N if desired
+          framesRef.current.push(blob)
+          setFramesCount(framesRef.current.length)
+          // For quick debugging, expose the blob size and a preview URL
+          const url = URL.createObjectURL(blob)
+          // Log instead of creating DOM elements to keep UI minimal
+          console.log('Captured frame blob:', { size: blob.size, url })
+          // revoke the object URL after a short time to avoid leaks
+          setTimeout(() => URL.revokeObjectURL(url), 5000)
+
+          // send the frame to backend for analysis/ingest
+          sendFrame(blob)
+        }
+      }, 'image/png')
+
+      rafRef.current = requestAnimationFrame(loop)
+    }
+
+    // kick off
+    rafRef.current = requestAnimationFrame(loop)
+  }
+
+  const stopCapture = () => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+  }
+
+  // Attach play/pause listeners so captures start/stop automatically
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const onPlay = () => {
+      console.log('video onPlay event')
+      setIsPlaying(true)
+      startCapture()
+    }
+    const onPause = () => {
+      console.log('video onPause/ended event')
+      setIsPlaying(false)
+      stopCapture()
+    }
+    v.addEventListener('play', onPlay)
+    v.addEventListener('pause', onPause)
+    v.addEventListener('ended', onPause)
+    return () => {
+      v.removeEventListener('play', onPlay)
+      v.removeEventListener('pause', onPause)
+      v.removeEventListener('ended', onPause)
+      stopCapture()
+    }
+  }, [])
+
+  // Functions for 5-button controls
+  const togglePlayPause = () => {
+    try{
+      if (videoRef.current) {
+        if (isPlaying) {
+          videoRef.current.pause();
+        } else {
+           console.log("No anomalies detected or unexpected response format.");
+           setDetectedAnomalies([]);
+        }
+  
+      }
+    } catch (error: any) {
+      console.error("Error during video selection or detection:", error);
+      if (error.response && error.response.status == 401) {
         alert("Session expired. Please log in again.");
         localStorage.removeItem('access_token'); // Clear token on auth error
         navigate('/login');
@@ -129,9 +260,6 @@ const HomePage: React.FC = () => {
   };
 
   // Video controls
-  const togglePlayPause = () => {
-      if (videoRef.current) { if (isPlaying) videoRef.current.pause(); else videoRef.current.play(); setIsPlaying(!isPlaying); }
-  };
   const rewind = () => { if (videoRef.current) videoRef.current.currentTime -= 10; };
   const fastForward = () => { if (videoRef.current) videoRef.current.currentTime += 10; };
   const previousVideo = () => { handleFeedSelect(selectedFeed || feeds[0].name); }; // Reload current/first feed
@@ -139,9 +267,91 @@ const HomePage: React.FC = () => {
 
   // Logout handlers
   const handleLogoutConfirm = () => {
-      setShowLogoutDialog(false); localStorage.removeItem('access_token'); navigate('/login');
+    setShowLogoutDialog(false)
+    ;(async () => {
+      try {
+        await signOut()
+      } catch (e) {
+        console.warn('signOut failed', e)
+      }
+      navigate('/login')
+    })()
+  }
+
+  const handleLogoutCancel = () => {
+    setShowLogoutDialog(false);  // Close dialog, stay on page
   };
-  const handleLogoutCancel = () => { setShowLogoutDialog(false); };
+
+  // Helpers to access captured frame blobs
+  const downloadLastFrame = () => {
+    const frames = framesRef.current
+    if (!frames || frames.length === 0) return
+    const blob = frames[frames.length - 1]
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `frame-${Date.now()}.png`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  const clearFrames = () => {
+    framesRef.current = []
+    setFramesCount(0)
+  }
+
+  // Send a captured PNG blob to the backend frames upload endpoint
+  const sendFrame = async (blob: Blob) => {
+    try {
+      console.log('sendFrame called', { size: blob.size })
+      const fd = new FormData()
+      // camera id can be set dynamically; default to 1 for now
+      fd.append('camera_id', '1')
+      fd.append('timestamp', new Date().toISOString())
+      // Convert PNG blob to JPG blob for better compatibility
+      const jpgBlob = await new Promise<Blob>((resolve) => {
+        const canvas = document.createElement('canvas')
+        const img = new Image()
+        img.onload = () => {
+          canvas.width = img.width
+          canvas.height = img.height
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(img, 0, 0)
+            canvas.toBlob((blob) => {
+              if (blob) resolve(blob)
+            }, 'image/jpeg', 0.95)
+          }
+        }
+        img.src = URL.createObjectURL(blob)
+      })
+      fd.append('file', jpgBlob, `frame-${Date.now()}.jpg`)
+
+      const backendOrigin = `http://0.0.0.0:8000`  // hardcoded for dev
+
+      const headers: Record<string, string> = {}
+      // if (apiKey) headers['x-api-key'] = apiKey
+
+      const res = await fetch(`${backendOrigin}/frames/upload-dev`, {
+        method: 'POST',
+        body: fd,
+        mode: 'cors',
+        credentials: 'include',
+        headers: {
+          ...headers,
+          'Accept': 'application/json',
+        }
+      })
+      console.log('upload response', { ok: res.ok, status: res.status })
+      if (!res.ok) {
+        console.warn('Frame upload failed', res.status, await res.text())
+      }
+    } catch (e) {
+      console.warn('sendFrame error', e)
+    }
+  }
 
   return (
     <div className="main-layout" style={{ marginTop: '30px' }}>

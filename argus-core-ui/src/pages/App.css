@@ -30,7 +30,7 @@
 
 /* Base */
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', sans-serif; background: var(--bg-base); color: var(--text-primary); height: 100vh; overflow: hidden; transition: all 0.3s ease; }
+body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg-base); color: var(--text-primary); height: 100vh; overflow: hidden; transition: all 0.3s ease; }
 
 /* Header */
 .header { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: linear-gradient(90deg, rgba(138,43,226,0.06), rgba(0,191,255,0.03)); backdrop-filter: blur(12px) saturate(120%); border-radius: 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 120; box-shadow: 0 6px 20px rgba(0,0,0,0.45); transition: all 0.3s ease; }
@@ -92,3 +92,58 @@ input:checked + .slider .moon { opacity: 1; }
 /* Fade Animation */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .sidebar, .center-video { animation: fadeIn 0.5s ease-out; }
+
+/* Settings Page — Enterprise Layout Tweaks */
+#profile, #appearance, #notifications, #system {
+  padding: 28px !important; /* larger cards */
+  border-radius: 20px !important;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.45) !important;
+}
+
+#profile .rounded-xl,
+#appearance .rounded-xl,
+#notifications .rounded-xl,
+#system .rounded-xl {
+  border-radius: 16px !important;
+}
+
+#profile .rounded-xl > div,
+#appearance .rounded-xl > div,
+#notifications .rounded-xl > div,
+#system .rounded-xl > div {
+  font-size: 1rem; /* elevate option text size */
+}
+
+/* Increase row spacing */
+#profile .px-6.py-3,
+#appearance .px-6.py-3,
+#notifications .px-6.py-3,
+#system .px-6.py-3 {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+
+/* Key column width refinement for tabular look */
+#profile .rounded-xl,
+#appearance .rounded-xl,
+#notifications .rounded-xl,
+#system .rounded-xl {
+  grid-template-columns: 300px 1fr !important;
+}
+
+/* Headings polish */
+#profile h2, #appearance h2, #notifications h2, #system h2 {
+  letter-spacing: 0.2px;
+  font-weight: 700;
+}
+
+/* Theme toggle pill visuals */
+#appearance .inline-flex.border {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Toggle inputs upscale */
+#notifications input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+}

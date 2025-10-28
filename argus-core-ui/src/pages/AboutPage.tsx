@@ -3,6 +3,18 @@ import React from 'react';
 const AboutPage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-8">
+      <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
+      <div
+        className="no-scrollbar"
+        style={{
+          maxHeight: 'calc(100vh - 140px)',
+          overflowY: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          paddingTop: '72px',
+          paddingRight: 4,
+        }}
+      >
       <h1 className="text-4xl font-bold mb-8 text-teal-300">About Argus Core</h1>
       
       <div className="space-y-8">
@@ -179,6 +191,7 @@ const AboutPage: React.FC = () => {
             individual privacy rights and obtain necessary permissions before monitoring public or private spaces.
           </p>
         </div>
+      </div>
       </div>
     </div>
   );
