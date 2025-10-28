@@ -1,8 +1,9 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: 100%;
+  max-width: 100%; /* Fill the whole viewport */
+  margin: 0;
+  padding: 0;         /* Remove the padding that causes the gap */
+  text-align: left; /* Let child components handle alignment */
 }
 
 .logo {
@@ -41,11 +42,7 @@
   color: #888;
 }
 
-/* Expand Center Display & Flush Sidebars */
-.main-layout {
-  margin: 0;  /* Remove top margin to hug header */
-  padding: 0;  /* No padding for edge-to-edge */
-}
+
 
 .sidebar {
   width: 280px;  /* Unchanged width */
@@ -147,4 +144,508 @@
 .video-controls button:hover::after {
   opacity: 1;
   visibility: visible;
+}
+
+/* Add these styles to your src/App.css */
+
+.header {
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.header-nav {
+  display: flex;
+  gap: 24px;
+}
+
+.header-nav a {
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.header-nav a:hover,
+.header-nav a.active { /* You'll need to use NavLink for .active */
+  color: var(--text-primary);
+  background: var(--glass-bg);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logout-button {
+  background: var(--accent-red);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(215, 38, 56, 0.4);
+  transition: all 0.3s ease;
+}
+
+.logout-button:hover {
+  filter: brightness(1.2);
+}
+
+/* New layout containers */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.content-container {
+  flex: 1;
+  overflow-y: auto; /* Allows content to scroll, not the whole page */
+  padding-top: 64px; /* Offset for fixed header */
+}
+
+/* Adjust main-layout to work within the new container */
+.main-layout {
+  height: calc(100vh - 64px); /* Full height minus header */
+  margin-top: 0; /* No longer need margin-top */
+}
+
+/* === Page Layout Styles for About & Settings === */
+
+/* Base container for plain pages */
+.page-container {
+  max-width: 1200px; /* <-- CHANGED: Was 900px, increased to use more space */
+  margin: 0 auto; /* Center the content */
+  padding: 2rem;
+  padding-bottom: 4rem; /* <-- ADDED: Extra space at the bottom */
+  color: var(--text-primary);
+  animation: fadeIn 0.5s ease-out; /* Use existing fade-in */
+}
+
+.page-container h1 {
+  font-size: 2.5rem; /* 40px */
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: var(--accent-violet);
+}
+
+.page-container h2 {
+  font-size: 1.5rem; /* 24px */
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.5rem;
+}
+
+.page-container h3 {
+  font-size: 1.1rem; /* 18px */
+  font-weight: 600;
+  color: var(--accent-blue);
+  margin-bottom: 0.25rem;
+}
+
+.page-container p,
+.page-container li {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.page-container p {
+  margin-bottom: 1rem;
+}
+
+.page-container ul {
+  list-style-position: inside;
+  margin-top: 0.5rem;
+}
+
+/* Reusable Info Card */
+.info-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.info-card.disclaimer {
+  background: rgba(215, 38, 56, 0.1);
+  border-color: var(--accent-red);
+}
+.info-card.disclaimer h2 {
+  color: var(--accent-red);
+  border-bottom-color: rgba(215, 38, 56, 0.3);
+}
+.info-card.disclaimer p {
+  color: var(--text-secondary);
+}
+
+
+/* --- About Page Specifics --- */
+
+.features-grid,
+.tech-stack-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.feature-item {
+  margin-top: 1rem;
+}
+
+/* --- Settings Page Specifics --- */
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.setting-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-item label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.setting-item p {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.setting-item.toggle {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-item.toggle label {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+/* Theme Buttons */
+.theme-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+.theme-buttons button {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.theme-buttons button:hover {
+  background: var(--glass-border);
+}
+.theme-buttons button.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+/* <-- ADDED: Styles for the Save Settings button --> */
+.save-button-container {
+  display: flex;
+  justify-content: flex-end; /* Pushes button to the right */
+  margin-top: 1.5rem;
+  /* This container is inside .page-container, so no max-width is needed here */
+}
+.save-button {
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-blue);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+.save-button:hover {
+  filter: brightness(1.2);
+}
+/* <-- END of added styles --> */
+
+
+/* === Incident List Page Styles === */
+
+.incident-list-page p {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.incident-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.incident-card {
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  border-width: 2px; /* Make border thicker for hover effect */
+}
+
+.incident-card:hover {
+  border-color: var(--accent-blue);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 191, 255, 0.2);
+}
+
+.incident-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.incident-card-header h2 {
+  font-size: 1.5rem;
+  color: var(--accent-red);
+  margin: 0;
+  border: none;
+}
+
+.incident-id {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--glass-border);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.incident-card-body {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3-column layout */
+  gap: 1rem;
+}
+
+.incident-card-body .setting-item p {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  background: var(--accent-violet);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.incident-card-footer {
+  margin-top: 1.5rem;
+  text-align: right;
+  font-weight: 500;
+  color: var(--accent-blue);
+}
+
+/* === Incident Detail Page Styles === */
+
+.incident-detail-page h1 {
+  color: var(--text-primary);
+}
+
+.incident-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.incident-detail-column h2 {
+  font-size: 1.25rem; /* 20px */
+  font-weight: 600;
+  color: var(--accent-blue);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.incident-detail-column .setting-item {
+  margin-bottom: 1.25rem;
+}
+
+.evidence-list,
+.anomaly-log-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 0.5rem;
+}
+
+.evidence-link {
+  display: inline-block;
+  text-decoration: none;
+  background: var(--accent-blue);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.evidence-link:hover {
+  filter: brightness(1.2);
+}
+
+.anomaly-log-list {
+  background: var(--bg-base); /* Darker background for log */
+  border-radius: 8px;
+  padding: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+}
+.anomaly-log-list li {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+.anomaly-log-list li:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.anomaly-log-list li strong {
+  color: var(--accent-red);
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* Responsive Fallback */
+@media (max-width: 768px) {
+  .incident-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Update this class in App.css */
+.evidence-link {
+  display: inline-block;
+  text-decoration: none;
+  background: var(--accent-blue);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  
+  /* Add these for <button> tag */
+  border: none;
+  font-family: inherit; /* Ensure button uses the same font */
+  font-size: 1rem;
+  cursor: pointer;
+}
+.evidence-link:hover {
+  filter: brightness(1.2);
+}
+
+/* Add this for the disabled state */
+.evidence-link:disabled {
+  background: var(--glass-border);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* === Full-Height Feed Page Layout === */
+
+/* 1. Make the feed page layout fill the vertical space */
+.main-layout {
+  height: 100%;
+  width: 100%;
+  margin-top: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+/* 2. Make the sidebars stretch vertically */
+.main-layout .sidebar {
+  height: 100%; /* Make sidebars full height */
+  box-sizing: border-box;
+  overflow-y: auto; /* Let sidebars scroll if needed */
+  flex-shrink: 0; /* Don't shrink sidebars */
+}
+
+/* 3. Make the center video area fill the remaining space */
+.main-layout .center-video {
+  height: 100%;
+  flex: 1; /* Take all remaining horizontal space */
+  padding: 20px;
+  box-sizing: border-box; /* Include padding in height/width */
+  
+  /* Use flexbox to position video player and controls */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 4. Make the video container grow to fill the center column */
+.main-layout .video-container {
+  flex: 1; /* This makes the video container fill all available space */
+  height: auto; /* Override any fixed vh */
+  width: 100%;
+  max-width: 100%;
+  
+  /* Center the video player within this container */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 5. Ensure the video player itself scales correctly */
+.main-layout .video-player {
+  max-width: 100%;    /* <-- The video can be *up to* 100% wide */
+  max-height: 100%;   /* <-- The video can be *up to* 100% tall */
+  width: auto;        /* Let the browser decide the width */
+  height: auto;       /* Let the browser decide the height */
+  object-fit: contain;
+}
+/* 6. Keep video controls at the bottom */
+.main-layout .video-controls {
+  flex-shrink: 0; /* Don't shrink */
+  margin-top: 15px;
 }

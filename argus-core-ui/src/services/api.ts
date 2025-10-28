@@ -97,3 +97,13 @@ export const getIncidents = (limit: number = 100) => {
 export const getCameras = () => {
     return api.get('/cameras');
 };
+
+
+/**
+ * Fetches an evidence clip as a blob for download.
+ */
+export const downloadClip = (clipId: number) => {
+  return api.get(`/clips/${clipId}`, {
+    responseType: 'blob', // This is the magic! Tell Axios to expect binary data
+  });
+};
