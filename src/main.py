@@ -11,10 +11,10 @@ import re # Import regex module
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import the new anomaly detection module and config
-from anomaly_detection import predict_anomaly
-from anomaly_config import ANOMALY_CLASSES, ALERT_ANOMALY_CLASSES, CLASS_TO_IDX
-from pose_analysis import detect_poses
-from utils import AnomalyConfidenceQueue
+from .anomaly_detection import predict_anomaly
+from .anomaly_config import ANOMALY_CLASSES, ALERT_ANOMALY_CLASSES, CLASS_TO_IDX
+from .pose_analysis import detect_poses
+from .utils import AnomalyConfidenceQueue
 from backend.alert_service import send_alert
 from backend.video_storage import save_clip
 

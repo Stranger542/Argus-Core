@@ -4,7 +4,7 @@ Argus-Core Production Backend
 ---------------------------------------
 A robust FastAPI backend to store incidents and evidence clips, now with
 user authentication and JWT support. Includes a dedicated detection endpoint.
-Version: 0.2.3 (Corrected Syntax)
+Version: 0.2.5 (Corrected Import Path)
 """
 
 import os
@@ -14,10 +14,11 @@ from typing import List, Optional
 import sys
 import cv2
 import numpy as np
-import os.path as osp # <-- CORRECT Import alias
+import os.path as osp 
 import random
 import traceback
 import json
+import re 
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,8 +32,8 @@ from dotenv import load_dotenv
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import joinedload # <-- Moved import to top
-from src.utils import AnomalyConfidenceQueue # Import the queue utility
+from sqlalchemy.orm import joinedload 
+from src.utils import AnomalyConfidenceQueue 
 
 # -----------------------------
 # Config & DB
@@ -84,7 +85,7 @@ class Incident(Base):
     __tablename__ = "incidents"
     id = Column(Integer, primary_key=True, index=True)
     camera_id = Column(Integer, ForeignKey("cameras.id"), nullable=False)
-    event_type = Column(String(255), nullable=False) # Increased length
+    event_type = Column(String(255), nullable=False) 
     score = Column(Float, nullable=True)
     started_at = Column(DateTime(timezone=True), nullable=False)
     ended_at = Column(DateTime(timezone=True), nullable=True)
@@ -115,7 +116,7 @@ class UserOut(UserBase):
     id: int
     is_active: int
     class Config:
-        from_attributes = True # <-- FIX: Correct syntax for Pydantic v2
+        from_attributes = True 
 
 class Token(BaseModel):
     access_token: str
@@ -131,7 +132,7 @@ class ClipOut(BaseModel):
     uploaded_at: datetime
     duration_seconds: Optional[float]
     class Config:
-        from_attributes = True # <-- FIX: Correct syntax
+        from_attributes = True 
 
 class IncidentOut(BaseModel):
     id: int
@@ -144,7 +145,7 @@ class IncidentOut(BaseModel):
     note: Optional[str]
     clips: List[ClipOut] = []
     class Config:
-        from_attributes = True # <-- FIX: Correct syntax
+        from_attributes = True 
 
 class IncidentCreate(BaseModel):
     camera_id: int
@@ -165,7 +166,7 @@ class CameraOut(BaseModel):
     location: Optional[str]
     is_active: int
     class Config:
-        from_attributes = True # <-- FIX: Correct syntax
+        from_attributes = True 
 
 class DetectRequest(BaseModel):
     video_url: str
@@ -216,13 +217,13 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try: # <-- FIX: Correct indentation and added except block
+    try: 
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
         token_data = TokenData(email=email)
-    except JWTError: # <-- FIX: Added except block
+    except JWTError: 
         raise credentials_exception
 
     user = get_user(db, email=token_data.email)
@@ -233,10 +234,10 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
 # -----------------------------
 # App & middleware
 # -----------------------------
-app = FastAPI(title="Argus-Core Backend", version="0.2.3") # Version bump
+app = FastAPI(title="Argus-Core Backend", version="0.2.5") # Version bump
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for development
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -244,7 +245,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine) # Ensure tables exist
+    Base.metadata.create_all(bind=engine) 
     datasets_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', 'datasets'))
     if not osp.isdir(datasets_dir):
         print(f"WARNING: Datasets directory not found at {datasets_dir}. Video serving/detection might fail.")
@@ -281,7 +282,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
-    user = get_user(db, email=form_data.username) # form_data.username is the email
+    user = get_user(db, email=form_data.username) 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -296,7 +297,6 @@ async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth
 
 @app.get("/users/me", response_model=UserOut)
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    # Keep authentication active
     return current_user
 
 # --- Edge Client Routes (API Key) ---
@@ -305,19 +305,17 @@ def create_incident(payload: IncidentCreate, db: Session = Depends(get_db)):
     cam = db.query(Camera).filter(Camera.id == payload.camera_id).first()
     if not cam:
         raise HTTPException(404, detail="camera not found")
-    # Explicitly map fields to avoid issues if schemas diverge
+    
     inc = Incident(
         camera_id=payload.camera_id,
         event_type=payload.event_type,
         score=payload.score,
         started_at=payload.started_at,
         ended_at=payload.ended_at
-        # status and note have defaults or are nullable
     )
     db.add(inc)
     db.commit()
     db.refresh(inc)
-    # Reload with clips relationship for response model
     db.refresh(inc, attribute_names=['clips'])
     return inc
 
@@ -328,7 +326,6 @@ def upload_clip(incident_id: int = Form(...), file: UploadFile = File(...), db: 
         raise HTTPException(404, detail="incident not found")
     incident_dir = osp.join(STORAGE_DIR, f"incident_{incident_id}")
     os.makedirs(incident_dir, exist_ok=True)
-    # Sanitize filename (optional but recommended)
     safe_filename = "".join(c for c in file.filename if c.isalnum() or c in ('-', '_', '.'))
     dest_path = osp.join(incident_dir, safe_filename)
     try:
@@ -344,23 +341,23 @@ def upload_clip(incident_id: int = Form(...), file: UploadFile = File(...), db: 
 
 # --- Web App Data Routes (User Login) ---
 @app.get("/incidents", response_model=List[IncidentOut])
-def list_incidents(db: Session = Depends(get_db), limit: int = 100, user: User = Depends(get_current_user)): # Keep auth
+def list_incidents(db: Session = Depends(get_db), limit: int = 100, user: User = Depends(get_current_user)): 
     incidents = db.query(Incident).options(joinedload(Incident.clips)).order_by(Incident.id.desc()).limit(limit).all()
     return incidents
 
 @app.get("/incidents/{incident_id}", response_model=IncidentOut)
-def get_incident(incident_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)): # Keep auth
+def get_incident(incident_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)): 
     inc = db.query(Incident).options(joinedload(Incident.clips)).filter(Incident.id == incident_id).first()
     if not inc:
         raise HTTPException(404, detail="incident not found")
     return inc
 
 @app.get("/cameras", response_model=List[CameraOut])
-def list_cameras(db: Session = Depends(get_db), user: User = Depends(get_current_user)): # Keep auth
+def list_cameras(db: Session = Depends(get_db), user: User = Depends(get_current_user)): 
     return db.query(Camera).all()
 
 @app.get("/clips/{clip_id}")
-def download_clip(clip_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)): # Keep auth
+def download_clip(clip_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)): 
     clip = db.query(Clip).get(clip_id)
     if not clip:
         raise HTTPException(404, detail="clip not found")
@@ -370,48 +367,47 @@ def download_clip(clip_id: int, db: Session = Depends(get_db), user: User = Depe
 
 # --- Video Serving Route ---
 def _pick_random_video(base_dir: str = "datasets/ucf_crime") -> str:
-    # Safely finds a random video file within the specified base directory
     base_abs = osp.abspath(osp.join(osp.dirname(__file__), '..', base_dir))
     if not osp.exists(base_abs): return ""
     candidates = []
-    for root, _, files in os.walk(base_abs): # Walk through all subdirectories
+    for root, _, files in os.walk(base_abs): 
         for f in files:
             if f.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
                 candidates.append(osp.join(root, f))
     return random.choice(candidates) if candidates else ""
 
-@app.get("/api/videos/random") # Publicly accessible for now
+@app.get("/api/videos/random") 
 def get_random_video():
     video_path = _pick_random_video()
     if not video_path:
         raise HTTPException(404, detail="No videos found under datasets/ucf_crime")
 
-    # Correctly create relative URL for frontend
     base_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', 'datasets'))
     relative_path = osp.relpath(video_path, base_dir)
     video_url = f"/datasets/{relative_path.replace(os.sep, '/')}"
     return {"video_url": video_url}
 
 # --- IMPROVED Endpoint for Detection (User Login Required) ---
-@app.post("/api/detect", dependencies=[Depends(get_current_user)]) # Keep auth
+@app.post("/api/detect", dependencies=[Depends(get_current_user)]) 
 def run_detection_on_video(
     request: DetectRequest,
-    db: Session = Depends(get_db) # Keep db
+    db: Session = Depends(get_db) 
 ):
     try:
-        # Lazy imports for ML components
         from src.anomaly_detection import predict_anomaly
         from src.anomaly_config import ALERT_ANOMALY_CLASSES
+        # Lazy import for alert service (it's in the same /backend dir)
+        from backend.alert_service import send_alert # <-- FIX: Corrected import path
     except ImportError as e: raise HTTPException(500, detail=f"Detection components missing: {e}")
     except Exception as e: raise HTTPException(500, detail=f"Import error: {e}")
 
     # --- Configuration similar to main.py ---
-    ALERT_CONFIDENCE_THRESHOLD = 0.5 # Minimum probability threshold
-    MIN_HITS_FOR_ALERT = 3         # Minimum consecutive high-confidence clips
-    FRAMES_PER_CLIP = 16           # Frames per ML prediction
+    ALERT_CONFIDENCE_THRESHOLD = 0.5 
+    MIN_HITS_FOR_ALERT = 3         
+    FRAMES_PER_CLIP = 16           
+    LOCATION = "CCTV Camera 1 / Main Entrance" 
 
     # Validate and construct absolute path
-    # ... (path construction logic remains the same) ...
     if not request.video_url.startswith("/datasets/"): raise HTTPException(400, detail="Invalid video URL.")
     base_datasets_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', 'datasets'))
     relative_path = request.video_url.partition('/datasets/')[-1]
@@ -424,17 +420,20 @@ def run_detection_on_video(
     try: cap = cv2.VideoCapture(absolute_video_path); assert cap.isOpened()
     except Exception as e: raise HTTPException(500, detail=f"Error opening video: {e}")
 
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25
+
     frames_buffer = []
-    anomaly_events = [] # List to store TRIGGERED events
+    full_video_frames_buffer = [] 
+    anomaly_events = [] 
     processed_clips = 0
     processed_frames_total = 0
 
-    # Initialize confidence queues and trigger status (like in main.py)
     anomaly_conf_queues = {
-        atype: AnomalyConfidenceQueue(max_len=FRAMES_PER_CLIP) # Use FRAMES_PER_CLIP as window size
+        atype: AnomalyConfidenceQueue(max_len=FRAMES_PER_CLIP) 
         for atype in ALERT_ANOMALY_CLASSES
     }
     alert_triggered_status = {atype: False for atype in ALERT_ANOMALY_CLASSES}
+    unique_anomalies_detected = set() 
 
     print(f"\n--- Starting SUSTAINED detection for: {osp.basename(absolute_video_path)} ---")
 
@@ -442,6 +441,9 @@ def run_detection_on_video(
         while True:
             ret, frame = cap.read()
             if not ret: break
+            
+            full_video_frames_buffer.append(frame.copy()) 
+            
             processed_frames_total += 1
             resized = cv2.resize(frame, (224, 224))
             frames_buffer.append(resized)
@@ -449,48 +451,40 @@ def run_detection_on_video(
             if len(frames_buffer) == FRAMES_PER_CLIP:
                 processed_clips += 1
                 pred_cls, prob = predict_anomaly(frames_buffer)
-                prob_float = float(prob or 0.0) # Ensure it's a float
+                prob_float = float(prob or 0.0) 
 
-                print(f"  Clip {processed_clips}: Predicted='{pred_cls}', Prob={prob_float:.4f}", end="") # Keep basic log
+                print(f"  Clip {processed_clips}: Predicted='{pred_cls}', Prob={prob_float:.4f}", end="") 
 
-                # Update relevant confidence queue
                 if pred_cls in anomaly_conf_queues:
                     anomaly_conf_queues[pred_cls].update(prob_float)
-                # Clear queues for non-alert classes to reset confidence
-                elif pred_cls == "Normal_Videos": # Check specifically for Normal
+                elif pred_cls == "Normal_Videos": 
                      for q in anomaly_conf_queues.values(): q.clear()
 
-                # Check all alertable types for sustained detection
                 for anomaly_type in ALERT_ANOMALY_CLASSES:
                     current_queue = anomaly_conf_queues[anomaly_type]
 
-                    # Check if it SHOULD trigger based on sustained confidence
                     should_trigger = current_queue.should_alert(
                         threshold=ALERT_CONFIDENCE_THRESHOLD,
                         min_hits=MIN_HITS_FOR_ALERT
                     )
 
                     if should_trigger:
-                        # Only add event if it wasn't already triggered
                         if not alert_triggered_status[anomaly_type]:
-                            print(f" -> SUSTAINED DETECTED: {anomaly_type}!") # Log trigger
+                            print(f" -> SUSTAINED DETECTED: {anomaly_type}!") 
+                            
                             anomaly_events.append({
                                 "event": anomaly_type,
-                                # Report the probability that caused the trigger
                                 "confidence": prob_float if pred_cls == anomaly_type else current_queue.average(),
                                 "time": datetime.now(timezone.utc).isoformat()
                             })
-                            alert_triggered_status[anomaly_type] = True # Mark as triggered
+                            alert_triggered_status[anomaly_type] = True 
+                            unique_anomalies_detected.add(anomaly_type) 
                     else:
-                        # If confidence dropped, reset the trigger status
                         if alert_triggered_status[anomaly_type]:
-                            print(f" -> CLEARED: {anomaly_type}") # Log clear
+                            print(f" -> CLEARED: {anomaly_type}") 
                             alert_triggered_status[anomaly_type] = False
-                            # Optionally clear the queue to require a fresh N hits
-                            # current_queue.clear()
 
-                # Always print newline after processing checks
-                print("")
+                print("") 
 
                 frames_buffer.clear()
 
@@ -504,29 +498,60 @@ def run_detection_on_video(
         print(f"--- ERROR: Could not read any frames from {osp.basename(absolute_video_path)} ---")
         raise HTTPException(500, detail="Could not read frames.")
 
-    print(f"--- Detection complete for {osp.basename(absolute_video_path)}. Processed {processed_clips} clips. Found {len(anomaly_events)} SUSTAINED anomaly events. ---")
-    return anomaly_events # Return list of triggered events
+    print(f"--- Detection complete for {osp.basename(absolute_video_path)}. Processed {processed_clips} clips. Found {len(unique_anomalies_detected)} unique anomaly types. ---")
+    
+    if unique_anomalies_detected:
+        print("\n--- Consolidated Alert Triggered ---")
+        detected_anomalies_list = sorted(list(unique_anomalies_detected))
+        summary_anomaly_type = ", ".join(detected_anomalies_list)
+        
+        sanitized_summary_anomaly_type = re.sub(r'[^a-zA-Z0-9_-]', '_', summary_anomaly_type)
+        location_safe = re.sub(r'[^a-zA-Z0-9_-]', '_', LOCATION)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"consolidated_evidence_{sanitized_summary_anomaly_type.lower()}_{location_safe}_{timestamp}.mp4"
+        
+        saved_path = osp.join(STORAGE_DIR, filename)
+
+        print(f"Overall: Anomaly(s) '{summary_anomaly_type}' detected in video: {osp.basename(absolute_video_path)}")
+
+        if not full_video_frames_buffer:
+            print("[ERROR] No frames in buffer, cannot save clip.")
+        else:
+            try:
+                h, w, _ = full_video_frames_buffer[0].shape
+                out = cv2.VideoWriter(saved_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+                for f in full_video_frames_buffer:
+                    out.write(f)
+                out.release()
+                print(f"Consolidated evidence video saved to: {saved_path}")
+                
+                send_alert(saved_path, location=LOCATION, anomaly_type=summary_anomaly_type)
+
+            except Exception as e:
+                print(f"[ERROR] Failed to save clip or send email: {e}")
+                traceback.print_exc()
+    else:
+        print("No alert-worthy anomalies detected in this video stream.")
+    
+    return anomaly_events 
 
 # --- OLD Simulation Route (Keep Auth Required) ---
-@app.post("/api/simulate/cameras/{camera_id}", dependencies=[Depends(get_current_user)]) # Keep auth active
+@app.post("/api/simulate/cameras/{camera_id}", dependencies=[Depends(get_current_user)]) 
 def simulate_camera_run(
     camera_id: int,
     send_email: bool = True,
     db: Session = Depends(get_db)
 ):
-    # This function remains logically the same as before, handling
-    # detection, incident creation, clip saving, and email sending.
-    # It just won't be called by the current frontend flow.
     try:
         from src.anomaly_detection import predict_anomaly
         from src.anomaly_config import ALERT_ANOMALY_CLASSES
-        from backend.alert_service import send_alert as send_email_alert
+        from backend.alert_service import send_alert as send_email_alert # <-- FIX: Corrected import path
     except ImportError as e: raise HTTPException(500, detail=f"Sim components missing: {e}")
     except Exception as e: raise HTTPException(500, detail=f"Sim import error: {e}")
 
     cam = db.query(Camera).filter(Camera.id == camera_id).first();
     if not cam: raise HTTPException(404, detail=f"Camera {camera_id} not found.")
-    video_path = _pick_random_video();
+    video_path = _pick_random_video()
     if not video_path: raise HTTPException(404, detail="No test videos found.")
     try: cap = cv2.VideoCapture(video_path); assert cap.isOpened()
     except Exception as e: raise HTTPException(500, detail=f"Error opening video: {e}")
@@ -534,8 +559,12 @@ def simulate_camera_run(
     frames_per_clip = 16; frames_buffer = []; alert_types = set(); prob_seen = 0.0; first_pred = None; anomaly_events = []; full_frames = []; fps = cap.get(cv2.CAP_PROP_FPS) or 25; processed = 0
     try:
         while True:
-            ret, frame = cap.read();
-            if not ret: break; processed += 1; full_frames.append(frame.copy()); resized = cv2.resize(frame, (224, 224)); frames_buffer.append(resized)
+            ret, frame = cap.read()
+            if not ret: break
+            processed += 1 
+            full_frames.append(frame.copy())
+            resized = cv2.resize(frame, (224, 224))
+            frames_buffer.append(resized)
             if len(frames_buffer) == frames_per_clip:
                 pred_cls, prob = predict_anomaly(frames_buffer);
                 if first_pred is None: first_pred = pred_cls; prob_seen = float(prob or 0.0)

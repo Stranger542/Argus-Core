@@ -7,7 +7,7 @@ import os
 
 # Add parent directory to sys.path to import anomaly_config
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
-from anomaly_config import NUM_CLASSES
+from src.anomaly_config import NUM_CLASSES
 
 def get_model(num_classes=NUM_CLASSES, weights=R3D_18_Weights.DEFAULT):
     """
