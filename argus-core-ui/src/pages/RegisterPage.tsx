@@ -1,59 +1,62 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import '../App.css'
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { register } from '../services/api'; // Import the register function
+import '../App.css';
 
-// Mock API function (your code—kept as-is)
-const registerUser = async (email: string, password: string) => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (email === "fail@test.com") reject({ response: { data: { detail: "Email already taken." } } })
-      else resolve("success")
-    }, 1000)
-  })
-}
-
-// Spinner Component (your code—kept as-is)
 const Spinner = () => (
   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
-)
+);
 
 const RegisterPage: React.FC = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')  // New field
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
+  // --- THIS IS NO LONGER A BYPASS ---
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
-    // Validation: Length check
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.")
-      return
-    }
-
-    // New: Confirmation validation
+    // 1. Check if passwords match
     if (password !== confirmPassword) {
-      setError("Passwords do not match. Please try again.")
-      return
+      setError("Passwords do not match.");
+      return;
+    }
+    
+    // 2. Check for password length
+    if (password.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
+
     try {
-      await registerUser(email, password)
-      navigate('/login', { state: { message: "Registration successful! Please log in." } })
+      // 3. Call the register API
+      // The backend expects a JSON object { email, password }
+      await register({ email, password });
+
+      // 4. On success, redirect to login with a success message
+      navigate('/login', { 
+        state: { message: "Registration successful. Please log in." } 
+      });
+
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed. Please try again.')
-    } finally {
-      setIsLoading(false)
+      console.error("Registration failed:", err);
+      if (err.response && err.response.data?.detail) {
+        setError(err.response.data.detail); // e.g., "Email already registered"
+      } else {
+        setError("Registration failed. Please try again.");
+      }
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', minHeight: 'calc(100vh - 60px)' }}>
@@ -79,6 +82,7 @@ const RegisterPage: React.FC = () => {
             }}
             placeholder="you@example.com"
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -96,6 +100,7 @@ const RegisterPage: React.FC = () => {
             }}
             placeholder="6+ characters"
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -113,18 +118,19 @@ const RegisterPage: React.FC = () => {
             }}
             placeholder="Re-enter password"
             required
+            disabled={isLoading}
           />
         </div>
 
         <button 
-          type="submit" 
-          disabled={isLoading}
+          type="submit"
           style={{ 
             width: '100%', padding: '12px', background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-violet))', 
-            border: 'none', borderRadius: '12px', color: 'var(--text-primary)', fontSize: '1rem', cursor: isLoading ? 'not-allowed' : 'pointer', 
+            border: 'none', borderRadius: '12px', color: 'var(--text-primary)', fontSize: '1rem', cursor: 'pointer', 
             boxShadow: '0 4px 15px rgba(0, 191, 255, 0.3)', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center',
             opacity: isLoading ? 0.7 : 1
           }}
+          disabled={isLoading}
         >
           {isLoading ? <Spinner /> : 'Create Account'}
         </button>
@@ -137,4 +143,4 @@ const RegisterPage: React.FC = () => {
   )
 }
 
-export default RegisterPage
+export default RegisterPage;

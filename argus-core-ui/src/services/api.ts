@@ -1,95 +1,99 @@
 import axios from 'axios';
 
-// Load API base URL from Vite env, with a safe default for local dev
-const API_BASE_URL: string = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8000';
-
-if (!(import.meta as any)?.env?.VITE_API_URL) {
-  // eslint-disable-next-line no-console
-  console.warn('[Argus-Core] VITE_API_URL not set. Falling back to http://localhost:8000');
-}
-
-// Centralized Axios client
-const apiClient = axios.create({ baseURL: API_BASE_URL });
-
-// Use an interceptor to dynamically add the auth token to every request
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    if (!config.headers) config.headers = {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+// Create a base axios instance
+const api = axios.create({
+  baseURL: 'http://localhost:8000', // Your FastAPI backend URL (port 8000)
 });
 
+// IMPORTANT: Use an interceptor to add the auth token to every request
+api.interceptors.request.use(
+  (config) => {
+    // Get the token from local storage
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    // Optionally handle global request errors (e.g., redirect to login on 401)
+    if (error.response && error.response.status === 401) {
+      console.error("Authentication Error - Redirecting to login");
+      // Uncomment the line below if you want automatic redirect on any 401
+      // window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
-// --- INTERFACES ---
-export interface Clip {
-  id: number;
-  file_path: string;
-}
+export default api;
 
-export interface Incident {
-  id: number;
-  camera_id: number;
-  event_type: string;
-  score?: number;
-  started_at: string;
-  status: string;
-  clips: Clip[];
-}
-
-export interface Camera {
-  id: number;
-  name: string;
-  location: string;
-  is_active: number;
-}
-
-export interface AuthToken {
-  access_token: string;
-  token_type: string;
-}
-
-// --- API FUNCTIONS ---
-
-// Auth Functions
-export const registerUser = (email: string, password: string) => {
-  return apiClient.post('/users/register', { email, password });
+// --- Authentication API Functions ---
+/**
+ * Logs in a user.
+ */
+export const login = (formData: FormData) => {
+  return api.post('/token', formData);
 };
 
-export const loginUser = (email: string, password: string) => {
-  const params = new URLSearchParams();
-  params.append('username', email);
-  params.append('password', password);
-  return apiClient.post<AuthToken>('/token', params, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-  });
+/**
+ * Registers a new user.
+ */
+export const register = (userData: any) => {
+  return api.post('/users/register', userData);
 };
 
-// Incident Functions
-export const getIncidents = () => {
-  return apiClient.get<Incident[]>('/incidents?limit=100');
-};
+// --- App API Functions ---
 
-export const getIncidentById = (id: number) => {
-  return apiClient.get<Incident>(`/incidents/${id}`);
-};
-
-// Camera Functions
-export const getCameras = () => {
-  return apiClient.get<Camera[]>('/cameras');
-};
-
-// User Functions
-export const getUserInfo = () => {
-  return apiClient.get('/users/me');
-};
-
-// Simulation Function: run server-side analysis on random dataset video for a camera
-export const simulateCamera = (cameraId: number, sendEmail = true) => {
-  return apiClient.post(`/simulate/cameras/${cameraId}?send_email=${sendEmail}`);
-};
-
+/**
+ * Fetches a random video URL from the backend datasets.
+ */
 export const getRandomVideo = () => {
-  return apiClient.get<{ video_url: string }>('/api/videos/random');
+  return api.get('/api/videos/random');
+};
+
+/**
+ * Asks the backend to analyze a video specified by its relative URL.
+ * Returns a list of detected anomaly events.
+ */
+export const detectAnomalies = (videoUrl: string) => {
+  // videoUrl should be like "/datasets/ucf_crime/test/Fighting/Fighting001.mp4"
+  return api.post('/api/detect', { video_url: videoUrl });
+};
+
+
+/**
+ * (Kept for potential future use or direct testing, but not used by HomePage)
+ * Triggers the backend simulation for a given camera, including incident creation and email.
+ */
+export const simulateCamera = (cameraId: number, sendEmail: boolean) => {
+  return api.post(`/api/simulate/cameras/${cameraId}?send_email=${sendEmail}`);
+};
+
+/**
+ * Fetches the details for a specific incident.
+ */
+export const getIncidentById = (id: number) => {
+  return api.get(`/incidents/${id}`);
+};
+
+/**
+ * Fetches the current user's details (e.g., to display email).
+ */
+export const getCurrentUser = () => {
+  return api.get('/users/me');
+};
+
+/**
+ * Fetches the list of incidents.
+ */
+export const getIncidents = (limit: number = 100) => {
+    return api.get(`/incidents?limit=${limit}`);
+};
+
+/**
+ * Fetches the list of cameras.
+ */
+export const getCameras = () => {
+    return api.get('/cameras');
 };

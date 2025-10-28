@@ -9,8 +9,7 @@ from collections import deque
 import sys
 
 # Add parent directory to sys.path to import anomaly_config
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from anomaly_config import ANOMALY_CLASSES, CLASS_TO_IDX
+from .anomaly_config import ANOMALY_CLASSES, CLASS_TO_IDX
 
 class AnomalyDataset(Dataset):
     """

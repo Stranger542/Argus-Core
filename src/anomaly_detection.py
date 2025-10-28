@@ -8,8 +8,7 @@ import os
 import sys
 
 # Add parent directory to sys.path to import anomaly_config and model
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from anomaly_config import NUM_CLASSES, IDX_TO_CLASS # Import NUM_CLASSES and IDX_TO_CLASS
+from .anomaly_config import NUM_CLASSES, IDX_TO_CLASS # Import NUM_CLASSES and IDX_TO_CLASS
 from model import get_model # Import get_model
 
 # Determine the device to run the model on (GPU if available, otherwise CPU)
