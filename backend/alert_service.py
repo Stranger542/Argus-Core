@@ -10,45 +10,57 @@ import datetime
 # Load environment variables from .env file
 load_dotenv()
 
-def send_alert(video_file_path: str, location: str = "Unknown", anomaly_type: str = "Anomaly"):
+def send_alert(
+    video_file_path: str, 
+    location: str = "Unknown", 
+    anomaly_type: str = "Anomaly",
+    additional_recipient: str | None = None  # <-- ADDED this parameter
+):
     """
     Sends an email alert with an attached video clip.
-    The email subject and content will now dynamically include the specific anomaly type(s) detected.
-    Email credentials are loaded from environment variables (e.g., from a .env file).
+    Can now send to the main ALERT_TO address and an additional recipient (e.g., the logged-in user).
 
     Args:
         video_file_path (str): The path to the video file to attach.
         location (str): The location where the event was detected.
-        anomaly_type (str): The specific type(s) of anomaly detected (can be a comma-separated string, e.g., "Fighting, RoadAccident").
+        anomaly_type (str): The specific type(s) of anomaly detected.
+        additional_recipient (str, optional): An additional email address to CC.
     """
     # Load SMTP configuration from environment variables
     SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
     SMTP_PORT   = int(os.getenv("SMTP_PORT", 587))
     SMTP_USER   = os.getenv("SMTP_USER")
     SMTP_PASS   = os.getenv("SMTP_PASS")
-    ALERT_TO    = os.getenv("ALERT_TO")
-    ALERT_FROM  = SMTP_USER # Typically, ALERT_FROM is the same as SMTP_USER
+    ALERT_TO    = os.getenv("ALERT_TO") # The main authority email
+    ALERT_FROM  = SMTP_USER
 
     # Check for missing credentials
     if not all([SMTP_USER, SMTP_PASS, ALERT_TO]):
-        print("[ERROR] Missing SMTP credentials or recipient in environment variables. Please check your .env file.")
+        print("[ERROR] Missing SMTP credentials or main recipient in environment variables. Please check your .env file.")
         return
+
+    # --- Build the recipient list ---
+    recipients = [ALERT_TO]
+    if additional_recipient and additional_recipient.lower() != ALERT_TO.lower(): # Check case-insensitively
+        print(f"[INFO] Adding logged-in user to alert: {additional_recipient}")
+        recipients.append(additional_recipient)
+    # --- END OF CHANGE ---
 
     # Get current real-time date and time
     now = datetime.datetime.now()
-    # Format: e.g., "Monday, July 22, 2025 at 03:30 PM"
     formatted_datetime = now.strftime("%A, %B %d, %Y at %I:%M %p")
 
     msg = EmailMessage()
-    # Use anomaly_type in Subject - it can now be a list of types
     msg['Subject'] = f"🚨 Argus Core ALERT: {anomaly_type} Detected at {location} on {formatted_datetime}"
     msg['From'] = ALERT_FROM
-    msg['To'] = ALERT_TO
     
-    # Use anomaly_type in Body - it can now be a list of types
+    # --- Join the recipient list for the 'To' header ---
+    msg['To'] = ", ".join(recipients)
+    # --- END OF CHANGE ---
+    
     email_body = (
         f"Automatic alert from your Argus Core smart-CCTV system.\n\n"
-        f"• Anomaly Type(s): {anomaly_type}\n" # Explicitly state anomaly type(s)
+        f"• Anomaly Type(s): {anomaly_type}\n"
         f"• Location         : {location}\n"
         f"• Clip             : {Path(video_file_path).name}\n"
         f"• Time             : {formatted_datetime}\n\n"
@@ -67,7 +79,7 @@ def send_alert(video_file_path: str, location: str = "Unknown", anomaly_type: st
                 msg.add_attachment(
                     fp.read(),
                     maintype="video",
-                    subtype="mp4", # Assuming save_clip now saves as .mp4
+                    subtype="mp4",
                     filename=file_path_obj.name,
                 )
     except Exception as e:
@@ -75,22 +87,25 @@ def send_alert(video_file_path: str, location: str = "Unknown", anomaly_type: st
         msg.set_content(f"An anomaly was detected at {location} on {formatted_datetime}. Video footage could not be attached due to an error.")
 
 
-    # Send
-    print(f"Sending alert e‑mail to {ALERT_TO} …")
+    # --- Update log messages ---
+    print(f"Sending alert e-mail to {', '.join(recipients)} ...")
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
             smtp.starttls()
             smtp.login(SMTP_USER, SMTP_PASS)
-            smtp.send_message(msg)
-        print(f"✅ Alert e‑mail sent to {ALERT_TO} for {anomaly_type} at {location} ({formatted_datetime}).")
+            # Use send_message which handles the recipient list correctly
+            smtp.send_message(msg) 
+        print(f"✅ Alert e-mail sent to {', '.join(recipients)} for {anomaly_type} at {location} ({formatted_datetime}).")
+    # --- END OF CHANGE ---
     except Exception as e:
-        print(f"[ERROR] Failed to send alert e‑mail: {e}")
+        print(f"[ERROR] Failed to send alert e-mail: {e}")
         print("Please check your email credentials (App password if 2FA is on), SMTP server settings, and internet connection.")
 
 # Optional: CLI test (only runs if the script is executed directly)
 if __name__ == "__main__":
     import sys
     dummy_file_path = Path("test_dummy_video.mp4")
+    # ... (rest of the __main__ block is unchanged) ...
     if not dummy_file_path.exists():
         print(f"Creating dummy file: {dummy_file_path}")
         try:
@@ -104,13 +119,28 @@ if __name__ == "__main__":
         clip_path = sys.argv[1]
         test_location = "CLI-Test-Location"
         test_anomaly_type = "TestAnomaly"
+        test_additional_recipient = None # Test sending only to main recipient
         if len(sys.argv) > 2:
             test_location = sys.argv[2]
         if len(sys.argv) > 3:
             test_anomaly_type = sys.argv[3]
-        send_alert(clip_path, location=test_location, anomaly_type=test_anomaly_type)
-    else:
-        print("Usage: python -m backend.alert_service <path_to_clip> [location] [anomaly_type]")
-        print(f"Running a default test email send using dummy file: {dummy_file_path}")
-        send_alert(str(dummy_file_path), location="Default-Test-Location", anomaly_type="DefaultAnomaly")
+        if len(sys.argv) > 4:
+            test_additional_recipient = sys.argv[4] # Get optional 4th arg
 
+        # Call with the additional recipient if provided
+        send_alert(
+            clip_path, 
+            location=test_location, 
+            anomaly_type=test_anomaly_type,
+            additional_recipient=test_additional_recipient 
+        )
+    else:
+        print("Usage: python -m backend.alert_service <path_to_clip> [location] [anomaly_type] [additional_email]")
+        print(f"Running a default test email send using dummy file: {dummy_file_path}")
+        # Test sending to an additional recipient (replace with a real email for testing)
+        send_alert(
+            str(dummy_file_path), 
+            location="Default-Test-Location", 
+            anomaly_type="DefaultAnomaly",
+            additional_recipient="testuser@example.com" 
+        )

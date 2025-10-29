@@ -616,36 +616,36 @@
 .main-layout .center-video {
   height: 100%;
   flex: 1; /* Take all remaining horizontal space */
-  padding: 20px;
+  padding: 10px; /* Reduced padding */
   box-sizing: border-box; /* Include padding in height/width */
   
-  /* Use flexbox to position video player and controls */
+  /* Use flexbox to position video player and controls vertically */
   display: flex;
   flex-direction: column;
 }
 
 /* 4. Make the video container grow to fill the center column */
+/* (This rule assumes you have a .video-container div inside .center-video) */
 .main-layout .video-container {
-  flex: 1; /* This makes the video container fill all available space */
-  height: auto; /* Override any fixed vh */
+  flex: 1; /* This makes the video container fill all available vertical space */
   width: 100%;
   max-width: 100%;
-  
-  /* Center the video player within this container */
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* No flex centering needed here, let the video player handle sizing */
 }
+
 /* 5. Ensure the video player itself scales correctly */
 .main-layout .video-player {
-  max-width: 100%;    /* <-- The video can be *up to* 100% wide */
-  max-height: 100%;   /* <-- The video can be *up to* 100% tall */
-  width: auto;        /* Let the browser decide the width */
-  height: auto;       /* Let the browser decide the height */
-  object-fit: contain;
+  display: block; /* Necessary for centering with margin: auto */
+  max-width: 100%;    /* Can be up to 100% wide */
+  max-height: 100%;   /* Can be up to 100% tall */
+  width: auto;        /* Let browser decide width based on height/aspect ratio */
+  height: auto;       /* Let browser decide height based on width/aspect ratio */
+  object-fit: contain; /* Scale while maintaining aspect ratio */
+  margin: auto;       /* Center the video within the container */
 }
+
 /* 6. Keep video controls at the bottom */
 .main-layout .video-controls {
   flex-shrink: 0; /* Don't shrink */
-  margin-top: 15px;
+  margin-top: 15px; /* Space above controls */
 }
