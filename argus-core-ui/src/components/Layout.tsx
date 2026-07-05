@@ -8,7 +8,7 @@ const AppLayout: React.FC = () => {
     <div className="app-container">
       <Header />
       <main className="content-container">
-        <Outlet /> {/* Child routes (HomePage, AboutPage, etc.) render here */}
+        <Outlet /> {/* Child routes render here */}
       </main>
     </div>
   );

@@ -12,8 +12,6 @@ import json
 from datetime import datetime, timezone
 import numpy as np
 
-# Add parent directory to sys.path to import from sibling directories
-# This handles both running from project root and from src/
 current_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in locals() else os.getcwd()
 sys.path.append(os.path.abspath(os.path.join(current_dir, '..')))
 
@@ -23,13 +21,11 @@ from pose_analysis import detect_poses
 from utils import AnomalyConfidenceQueue
 from backend.alert_service import send_alert
 
-# --- Configuration (remains the same) ---
 UCF_CRIME_TEST_DIR = "datasets/ucf_crime/test"
 RWF_TEST_DIR = "datasets/rwf_2000/test"
 RWF_CLASS_MAPPING = { 'Fight': 'Fighting', 'NonFight': 'Normal_Videos' }
 
 def get_random_anomaly_video_path(base_dirs, class_name=None):
-    # This function remains unchanged...
     all_candidate_videos = []
     for base_dir in base_dirs:
         adjusted_base_dir = os.path.abspath(os.path.join(current_dir, '..', base_dir))
@@ -57,7 +53,6 @@ def get_random_anomaly_video_path(base_dirs, class_name=None):
     print(f"Randomly selected video for simulation: {selected_video}")
     return selected_video
 
-# --- API & Authentication Configuration (remains the same) ---
 BACKEND_API_URL = "http://localhost:8080"
 load_dotenv()
 API_KEY = os.getenv("ARGUS_API_KEY")

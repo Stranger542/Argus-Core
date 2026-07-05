@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { getCameras } from '../services/api';
 import type { Camera } from '../services/api';
-
 interface CameraSidebarProps {
   selectedCameraId: number | null;
   onSelectCamera: (id: number) => void;
 }
-
 const CameraSidebar: React.FC<CameraSidebarProps> = ({ selectedCameraId, onSelectCamera }) => {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
   useEffect(() => {
     const fetchCameras = async () => {
       try {
@@ -19,7 +16,6 @@ const CameraSidebar: React.FC<CameraSidebarProps> = ({ selectedCameraId, onSelec
         setCameras(response.data);
       } catch (error) {
         console.error("Failed to fetch cameras:", error);
-        // Add some mock cameras for demo purposes
         setCameras([
           { id: 1, name: "Main Entrance", location: "Building A - Front Door", is_active: 1 },
           { id: 2, name: "Parking Lot", location: "Building A - Parking Area", is_active: 1 },
@@ -32,7 +28,6 @@ const CameraSidebar: React.FC<CameraSidebarProps> = ({ selectedCameraId, onSelec
     };
     fetchCameras();
   }, []);
-
   const filteredCameras = cameras.filter(camera =>
     camera.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     camera.location.toLowerCase().includes(searchTerm.toLowerCase())
@@ -48,13 +43,12 @@ const CameraSidebar: React.FC<CameraSidebarProps> = ({ selectedCameraId, onSelec
       </aside>
     );
   }
-
   return (
     <aside className="bg-gray-900 p-4 rounded-lg shadow-inner w-full">
       <div className="mb-4">
         <h2 className="text-xl font-semibold mb-3 text-teal-300">Camera Feeds</h2>
         
-        {/* Search Input */}
+        {/*search*/}
         <div className="relative">
           <input
             type="text"
@@ -143,5 +137,4 @@ const CameraSidebar: React.FC<CameraSidebarProps> = ({ selectedCameraId, onSelec
     </aside>
   );
 };
-
 export default CameraSidebar;

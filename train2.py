@@ -110,10 +110,6 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss(weight = _weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     
-    # Optional: Learning Rate Scheduler (uncomment to use)
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
-
-    # --- Training Loop ---
     print("Starting training...")
     for epoch in range(EPOCHS):
         model.train()
@@ -123,16 +119,12 @@ if __name__ == '__main__':
 
         for batch_idx, (inputs, labels) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS}")):
             inputs, labels = inputs.to(device), labels.to(device)
-
             outputs = model(inputs)
             loss = criterion(outputs, labels)
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
             total_loss += loss.item()
-
             _, predicted = torch.max(outputs.data, 1)
             total_samples += labels.size(0)
             correct_predictions += (predicted == labels).sum().item()
@@ -141,10 +133,6 @@ if __name__ == '__main__':
         accuracy = (correct_predictions / total_samples) * 100
         print(f"Epoch {epoch+1} - Loss: {avg_loss:.4f}, Train Accuracy: {accuracy:.2f}%\n")
         
-        # Optional: Step the scheduler (uncomment if using scheduler)
-        # if 'scheduler' in locals():
-        #     scheduler.step()
-
     # --- Save Trained Model ---
     torch.save(model.state_dict(), MODEL_SAVE_PATH)
     print(f"Training complete. Model saved to {MODEL_SAVE_PATH}")

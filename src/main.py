@@ -18,12 +18,8 @@ from .utils import AnomalyConfidenceQueue
 from backend.alert_service import send_alert
 from backend.video_storage import save_clip
 
-# --- Configuration ---
-# Base paths to your datasets' test splits
 UCF_CRIME_TEST_DIR = "datasets/ucf_crime/test"
-RWF_TEST_DIR = "datasets/rwf_2000/test" # RWF is NOT used in VIDEO_SOURCE selection for simulation
-
-# Define mapping for RWF-2000 folder names to standardized ANOMALY_CLASSES
+RWF_TEST_DIR = "datasets/rwf_2000/test"
 RWF_CLASS_MAPPING = {
     'Fight': 'Fighting',
     'NonFight': 'Normal_Videos'
@@ -32,14 +28,12 @@ RWF_CLASS_MAPPING = {
 def get_random_anomaly_video_path(base_dirs, class_name=None, class_mapping=None):
     """
     Selects a random video file from specified base directories for a given class.
-    If class_name is None, picks a random class and then a random video from any available dataset.
-    
+    If class_name is None, picks a random class and then a random video from any available dataset. 
     Args:
         base_dirs (list): A list of root directories to search for test videos (e.g., [UCF_CRIME_TEST_DIR]).
         class_name (str, optional): The specific class name to select a video from (e.g., "Fighting", "RoadAccident").
                                     If None, a random class is chosen from all available classes across base_dirs.
-        class_mapping (dict, optional): A dictionary to map actual folder names to standardized ANOMALY_CLASSES.
-                                        Used for datasets like RWF or RLVS if they were included.
+        class_mapping (dict, optional): A dictionary to map actual folder names to standardized ANOMALY_CLASSES.                                  Used for datasets like RWF or RLVS if they were included.
     Returns:
         str: The full path to the selected video, or None if no valid video source could be found.
     """
@@ -55,8 +49,6 @@ def get_random_anomaly_video_path(base_dirs, class_name=None, class_mapping=None
         
         target_class_dirs_for_this_base = []
         if class_name:
-            # Try to find the folder name that maps to the requested class_name
-            # For UCF_CRIME_TEST_DIR, assume folder names directly match ANOMALY_CLASSES
             actual_folder_name = class_name 
             target_class_dirs_for_this_base.append(os.path.join(adjusted_base_dir, actual_folder_name))
         else: # If no specific class is requested, find all available classes in this base_dir
@@ -83,10 +75,6 @@ def get_random_anomaly_video_path(base_dirs, class_name=None, class_mapping=None
     selected_video = random.choice(all_candidate_videos)
     print(f"Randomly selected video for simulation: {selected_video}")
     return selected_video
-
-# Set VIDEO_SOURCE to pick a random video from the UCF_CRIME_TEST_DIR
-# You can specify a class here for specific testing, e.g., class_name="RoadAccident"
-# If class_name is None, it will pick a random video from ANY class across BOTH datasets.
 VIDEO_SOURCE = get_random_anomaly_video_path([UCF_CRIME_TEST_DIR], class_name=None)
 
 # If VIDEO_SOURCE is None, it means there was an error finding videos.
@@ -245,6 +233,6 @@ if __name__ == '__main__': # Ensure all main execution logic is within this bloc
         print("No alert-worthy anomalies detected in this video stream.")
 
     # --- Cleanup ---
-    cap.release() # Release the video capture object
-    cv2.destroyAllWindows() # Close all OpenCV windows
+    cap.release() 
+    cv2.destroyAllWindows() 
     print("Application stopped.")

@@ -33,10 +33,6 @@ from sqlalchemy.orm import joinedload
 from src.utils import AnomalyConfidenceQueue 
 from fastapi.middleware.cors import CORSMiddleware
 
-# ... (Config, DB Setup, Security Config... are unchanged) ...
-# ==============================================================================
-## ⚙️ Config & Database Setup
-# ==============================================================================
 load_dotenv()
 API_KEY = os.getenv("ARGUS_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -50,9 +46,6 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# ==============================================================================
-## 🔒 Security & Auth Config
-# ==============================================================================
 SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_that_should_be_in_your_env_file")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
@@ -61,16 +54,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 if SECRET_KEY == "a_very_secret_key_that_should_be_in_your_env_file":
     print("WARNING: Using default SECRET_KEY.")
 
-# ==============================================================================
-## 📦 Database Models
-# ==============================================================================
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Integer, default=1)
-# ... (Camera, Incident, Clip models are unchanged) ...
+
 class Camera(Base):
     __tablename__ = "cameras"
     id = Column(Integer, primary_key=True, index=True)
@@ -100,10 +90,6 @@ class Clip(Base):
     duration_seconds = Column(Float, nullable=True)
     incident = relationship("Incident", back_populates="clips")
 
-# ==============================================================================
-## 📜 Pydantic Schemas
-# ==============================================================================
-# ... (All schemas UserBase, UserCreate, etc. are unchanged) ...
 class UserBase(BaseModel):
     email: EmailStr
 class UserCreate(UserBase):
@@ -159,10 +145,6 @@ class CameraOut(BaseModel):
 class DetectRequest(BaseModel):
     video_url: str
 
-# ==============================================================================
-## 🛠️ Security Helpers & Dependencies
-# ==============================================================================
-# ... (verify_password, get_password_hash, create_access_token... are unchanged) ...
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 def get_password_hash(password):
@@ -215,10 +197,6 @@ async def get_current_user(
         raise credentials_exception
     return user # <-- Return the full user object
 
-# ==============================================================================
-## 🚀 FastAPI App & Middleware
-# ==============================================================================
-
 app = FastAPI(title="Argus-Core Backend", version="0.2.8") # Version bump
 
 app.add_middleware(
@@ -245,11 +223,6 @@ def on_startup():
         sys.path.append(src_dir)
     print("Startup complete. Static files mounted if datasets dir exists.")
 
-# ==============================================================================
-## 🚦 API Routes
-# ==============================================================================
-
-# --- Health Check ---
 @app.get("/health")
 def health():
     return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}

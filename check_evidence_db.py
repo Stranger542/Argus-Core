@@ -1,11 +1,7 @@
-# check_evidence_db.py
 import sqlite3
 import os
-import datetime # Import datetime module for formatting
-
-# Define the path to your SQLite database file
+import datetime 
 DB_FILE = 'evidence.db'
-
 def check_database_entries():
     """
     Connects to the SQLite database and prints all entries
@@ -20,8 +16,6 @@ def check_database_entries():
     try:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-
-        # Query all rows from the evidence_log table
         cursor.execute("SELECT id, event_type, timestamp, location, file_path, confidence, status FROM evidence_log ORDER BY timestamp DESC")
         rows = cursor.fetchall()
 
@@ -30,15 +24,12 @@ def check_database_entries():
             return
 
         print(f"\n--- Entries in '{DB_FILE}' (evidence_log table) ---")
-        # Adjust header spacing for the new timestamp format
         print(f"{'ID':<4} | {'Event Type':<12} | {'Timestamp (YYYY-MM-DD HH:MM:SS)':<28} | {'Location':<25} | {'File Path':<40} | {'Confidence':<10} | {'Status':<8}")
         print("-" * 160) # Adjust width based on column headers
 
         for row in rows:
             # Format output for readability
             row_id, event_type, timestamp_str, location, file_path, confidence, status = row
-            
-            # Attempt to parse and reformat the timestamp string
             formatted_timestamp = timestamp_str
             try:
                 # Assuming timestamp is stored as YYYYMMDD_HHMMSS

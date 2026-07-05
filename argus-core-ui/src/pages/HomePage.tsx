@@ -34,7 +34,7 @@ const HomePage: React.FC = () => {
       // 1. Get random video URL
       const videoResponse = await getRandomVideo();
       const relativeVideoUrl = videoResponse.data.video_url;
-      const fullVideoUrl = `http://localhost:8000${relativeVideoUrl}`;
+      const fullVideoUrl = `http://localhost:8080${relativeVideoUrl}`;
       setVideoUrl(fullVideoUrl);
 
       // Start playing the video

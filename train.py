@@ -7,18 +7,12 @@ from tqdm import tqdm
 import os
 import sys
 import numpy as np
-
-# Add the 'src' directory to the Python path to allow imports from it
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 from utils import AnomalyDataset
 from model import get_model
 from anomaly_config import NUM_CLASSES, ANOMALY_CLASSES
-
-# --- Configuration ---
-# Paths to your datasets' training splits
 UCF_CRIME_TRAIN_DIR = "datasets/ucf_crime/train"
-# UCF_CRIME_TEST_DIR is explicitly NOT used for training in this version
 RWF_TRAIN_DIR = "datasets/rwf_2000/train"
 
 
@@ -105,9 +99,6 @@ if __name__ == '__main__':
     model = get_model(num_classes=NUM_CLASSES).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    
-    # Optional: Learning Rate Scheduler (uncomment to use)
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
 
     # --- Training Loop ---
     print("Starting training...")
@@ -136,11 +127,6 @@ if __name__ == '__main__':
         avg_loss = total_loss / len(train_loader)
         accuracy = (correct_predictions / total_samples) * 100
         print(f"Epoch {epoch+1} - Loss: {avg_loss:.4f}, Train Accuracy: {accuracy:.2f}%\n")
-        
-        # Optional: Step the scheduler (uncomment if using scheduler)
-        # if 'scheduler' in locals():
-        #     scheduler.step()
-
     # --- Save Trained Model ---
     torch.save(model.state_dict(), MODEL_SAVE_PATH)
     print(f"Training complete. Model saved to {MODEL_SAVE_PATH}")

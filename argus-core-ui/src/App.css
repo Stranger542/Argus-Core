@@ -1,9 +1,9 @@
 #root {
   width: 100%;
-  max-width: 100%; /* Fill the whole viewport */
+  max-width: 100%; 
   margin: 0;
-  padding: 0;         /* Remove the padding that causes the gap */
-  text-align: left; /* Let child components handle alignment */
+  padding: 0;         
+  text-align: left; 
 }
 
 .logo {
@@ -630,22 +630,177 @@
   flex: 1; /* This makes the video container fill all available vertical space */
   width: 100%;
   max-width: 100%;
-  /* No flex centering needed here, let the video player handle sizing */
+  display: flex; /* ADD THIS - makes it a flex container */
+  align-items: center; /* ADD THIS - centers video vertically */
+  justify-content: center; /* ADD THIS - centers video horizontally */
+  overflow: hidden; /* ADD THIS - prevents overflow */
 }
 
 /* 5. Ensure the video player itself scales correctly */
 .main-layout .video-player {
-  display: block; /* Necessary for centering with margin: auto */
-  max-width: 100%;    /* Can be up to 100% wide */
-  max-height: 100%;   /* Can be up to 100% tall */
-  width: auto;        /* Let browser decide width based on height/aspect ratio */
-  height: auto;       /* Let browser decide height based on width/aspect ratio */
+  width: 100%;        /* CHANGED - fill container width */
+  height: 100%;       /* CHANGED - fill container height */
   object-fit: contain; /* Scale while maintaining aspect ratio */
-  margin: auto;       /* Center the video within the container */
 }
 
 /* 6. Keep video controls at the bottom */
 .main-layout .video-controls {
   flex-shrink: 0; /* Don't shrink */
   margin-top: 15px; /* Space above controls */
+}
+
+/* === Authentication Page Layout === */
+
+/* This is the new full-page gradient background */
+.auth-page-gradient-bg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, var(--accent-violet) 0%, var(--accent-blue) 100%);
+}
+
+/* This is the new logo *inside* the form card */
+.auth-form-logo {
+  width: 80px;
+  height: auto;
+  display: block;
+  margin: 0 auto 1.5rem auto;
+  border-radius: 25%;
+  
+  /* --- FIX: REMOVED THE FILTER --- */
+  /* This makes your black logo visible on the new light card */
+}
+
+/* This is the form card itself */
+.auth-form {
+  /* --- CHANGED: Use a light-colored glass effect --- */
+  background: linear-gradient(to right, rgba(0,31,107,0.77), rgba(122,0,204,0.77));
+  padding: 2.5rem;
+  border-radius: 20px;
+  backdrop-filter: var(--blur);
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Light border */
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.auth-form h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(white);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.auth-form label {
+  display: block;
+  /* --- CHANGED: Make text light --- */
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Light border */
+  border-radius: 12px;
+  /* --- CHANGED: Light input background --- */
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary); /* Keep text light */
+  font-size: 1rem;
+  backdrop-filter: var(--blur);
+  transition: all 0.3s;
+  margin-bottom: 1rem;
+}
+
+.auth-form input::placeholder {
+  color: rgba(255, 255, 255, 0.5); /* Light placeholder */
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 10px rgba(0, 191, 255, 0.3);
+}
+
+.auth-form button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 1rem;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-violet));
+  border: none;
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 191, 255, 0.3);
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-form button:hover {
+  filter: brightness(1.2);
+}
+
+.auth-form button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Other auth text styles */
+.auth-redirect-link {
+  text-align: center;
+  margin-top: 1.5rem;
+  /* --- CHANGED: Make text light --- */
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.auth-redirect-link a {
+  text-decoration: none;
+  font-weight: 500;
+}
+.auth-form p a[href="/login"] {
+  color: var(--accent-blue);
+}
+.auth-form p a[href="/register"] {
+  color: var(--accent-blue);
+}
+
+/* Messages (Success/Error) */
+.auth-message {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+.auth-message.error {
+  color: var(--accent-red);
+  background: rgba(215, 38, 56, 0.2);
+  border: 1px solid var(--accent-red);
+}
+.auth-message.success {
+  color: var(--accent-blue);
+  background: rgba(0, 191, 255, 0.2);
+  border: 1px solid var(--accent-blue);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .auth-page-gradient-bg {
+    padding: 1rem;
+  }
+  .auth-form {
+    padding: 2rem 1.5rem;
+  }
 }

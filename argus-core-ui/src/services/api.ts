@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create a base axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:8000', // Your FastAPI backend URL (port 8000)
+  baseURL: 'http://localhost:8080', // Your FastAPI backend URL (port 8000)
 });
 
 // IMPORTANT: Use an interceptor to add the auth token to every request

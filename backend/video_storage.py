@@ -3,10 +3,7 @@ import cv2
 import os
 import datetime
 import sqlite3
-
-# Define the path for the SQLite database file
 DB_FILE = 'evidence.db'
-# Ensure the 'storage' directory exists for video files
 VIDEO_STORAGE_DIR = 'storage'
 os.makedirs(VIDEO_STORAGE_DIR, exist_ok=True)
 
@@ -41,7 +38,6 @@ def init_db():
 def save_clip(frames, base_filename="anomaly_clip", fps=10, location="Unknown", confidence=None, event_type="Anomaly"):
     """
     Saves a list of video frames as an MP4 file and logs its metadata to a SQLite database.
-
     Args:
         frames (list of numpy.ndarray): A list of OpenCV frames (BGR format) to save.
         base_filename (str): The base name for the output video file.
@@ -50,7 +46,6 @@ def save_clip(frames, base_filename="anomaly_clip", fps=10, location="Unknown", 
         confidence (float, optional): The confidence score of the detection.
         event_type (str): The specific type of anomaly detected (e.g., "Fighting", "RoadAccident").
                           This is used for database logging.
-
     Returns:
         str: The full path to the saved video file, or None if saving failed.
     """
@@ -86,12 +81,8 @@ def save_clip(frames, base_filename="anomaly_clip", fps=10, location="Unknown", 
     # Write each frame to the video file
     for f in frames:
         out.write(f)
-
-    # Release the video writer
     out.release()
     print(f"Video clip saved to: {filepath}")
-
-    # Log evidence to SQLite database
     conn = None
     try:
         conn = sqlite3.connect(DB_FILE)
@@ -109,6 +100,4 @@ def save_clip(frames, base_filename="anomaly_clip", fps=10, location="Unknown", 
             conn.close()
 
     return filepath
-
-# Initialize the database when this module is imported
 init_db()

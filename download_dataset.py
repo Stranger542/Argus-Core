@@ -19,8 +19,6 @@ def download_and_organize_rwf2000_dataset(target_base_dir="datasets/rwf_2000", t
     print("Attempting to download RWF-2000 dataset from Kaggle Hub...")
     download_path = None
     try:
-        # Download latest version of the dataset
-        # This will typically download to a cache directory like ~/.kaggle/kagglehub/datasets/vulamnguyen/rwf2000/
         download_path = kagglehub.dataset_download("vulamnguyen/rwf2000")
         print(f"Dataset downloaded successfully to: {download_path}")
 
@@ -29,10 +27,6 @@ def download_and_organize_rwf2000_dataset(target_base_dir="datasets/rwf_2000", t
         print("Please ensure you have Kaggle API credentials configured correctly (run 'kaggle configure')")
         print("or that your 'kaggle.json' file is in '~/.kaggle/'.")
         return
-
-    # Determine the actual root of the RWF-2000 content within the downloaded path
-    # The downloaded ZIP usually extracts to a folder like 'rwf2000' or 'RWF-2000'
-    # and then contains 'Fight' and 'NonFight' inside.
     dataset_content_path = None
     for root, dirs, files in os.walk(download_path):
         if 'Fight' in dirs and 'NonFight' in dirs:
@@ -80,15 +74,9 @@ def download_and_organize_rwf2000_dataset(target_base_dir="datasets/rwf_2000", t
         shutil.move(os.path.join(dataset_content_path, "NonFight", video_file), os.path.join(test_nonfight_dir, video_file))
     print(f"Moved {len(train_nonfights)} non-fight videos to train, {len(test_nonfights)} to test.")
 
-    # Clean up the original downloaded (now empty) directories if they are within the download_path
-    # This part can be tricky if the download_path is a shared cache.
-    # It's safer to leave the cache managed by kagglehub and just move the files.
-    # If the user wants to remove the original downloaded folder, they can do so manually.
     print(f"\nDataset organization complete. Files are now in '{target_base_dir}'.")
     print("The original downloaded files might still be in the KaggleHub cache, which is normal.")
 
 
 if __name__ == "__main__":
-    # Ensure sklearn is installed for train_test_split: pip install scikit-learn
-    # Ensure kagglehub is installed: pip install kagglehub
     download_and_organize_rwf2000_dataset()

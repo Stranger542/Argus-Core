@@ -5,8 +5,6 @@ import { Link, useNavigate } from 'react-router-dom';
 const Header: React.FC = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const navigate = useNavigate();
-
-  // Logout logic moved from HomePage.tsx
   const handleLogoutConfirm = () => {
     setShowLogoutDialog(false);
     localStorage.removeItem('access_token');
@@ -16,10 +14,7 @@ const Header: React.FC = () => {
   const handleLogoutCancel = () => {
     setShowLogoutDialog(false);
   };
-
-  // Simple theme toggle logic (add your existing logic here if you have it)
   const toggleTheme = () => {
-    // Implement your theme toggle logic
     console.log("Theme toggled");
   };
 
@@ -27,7 +22,6 @@ const Header: React.FC = () => {
     <>
       <header className="header">
         <h1>Argus Core</h1>
-        
         <nav className="header-nav">
           <Link to="/feed">Feed</Link>
           <Link to="/about">About</Link>
@@ -35,8 +29,7 @@ const Header: React.FC = () => {
         </nav>
 
         <div className="header-controls">
-          {/* You can add your theme toggle here. 
-            I've added a placeholder based on your App.css 
+          {/* theme 
           */}
           <label className="theme-toggle" title="Toggle theme">
             <input type="checkbox" onChange={toggleTheme} />
@@ -56,7 +49,7 @@ const Header: React.FC = () => {
         </div>
       </header>
 
-      {/* Logout Dialog (copied from HomePage.tsx) */}
+      {/* Logout Dialog */}
       {showLogoutDialog && (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,

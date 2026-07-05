@@ -21,7 +21,6 @@ def download_and_organize_ucf_crime_dataset(
     """
     Downloads a UCF-Crime-like dataset from Kaggle Hub, copies it to a temporary raw location
     within the project, and then robustly organizes it into train/test splits.
-
     Args:
         target_base_dir (str): The base directory where the organized dataset will be placed.
                                 Expected: datasets/ucf_crime or datasets/rwf_2000
@@ -180,33 +179,20 @@ def download_and_organize_ucf_crime_dataset(
         shutil.rmtree(raw_data_temp_path)
         print("Temporary raw downloads folder removed.")
 
-
 if __name__ == "__main__":
-    # --- IMPORTANT ---
-    # Ensure you have Kaggle API credentials configured before running:
-    # 1. Go to Kaggle.com, log in, go to your profile, then "Account", and click "Create New API Token".
-    # 2. This downloads `kaggle.json`. Place this file in a `.kaggle` folder in your user's home directory
-    #    (e.g., C:\Users\YourUser\.kaggle\ on Windows, or ~/.kaggle/ on Linux/macOS).
-
-    # --- Run this script from your Argus_Core/ directory ---
-    # python download_multi_event_datasets.py
-
-    # Define dataset IDs here for standalone execution.
     UCF_CRIME_TRAIN_ID = "minhajuddinmeraj/anomalydetectiondatasetucf"
     RWF_2000_ID = "vulamnguyen/rwf2000"
-    
-    # --- Organizing UCF-Crime for Training and Testing (with increased test size) ---
     print("\n--- Organizing UCF-Crime for Training and Testing ---")
     download_and_organize_ucf_crime_dataset(
         target_base_dir="datasets/ucf_crime",
         kaggle_dataset_id=UCF_CRIME_TRAIN_ID,
-        test_size=0.4, # Increased test_size to 40% for UCF-Crime
-        selected_classes=None # Process all classes in anomaly_config.py
+        test_size=0.4, 
+        selected_classes=None 
     )
 
     print("\n--- Organizing RWF-2000 for Training ---")
     download_and_organize_ucf_crime_dataset(
         target_base_dir="datasets/rwf_2000",
         kaggle_dataset_id=RWF_2000_ID,
-        test_size=0.2 # Keep default RWF-2000 split for its train/test
+        test_size=0.2 
     )

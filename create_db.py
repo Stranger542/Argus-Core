@@ -3,9 +3,6 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 import sys
-
-# Load environment variables from .env file
-# Ensure your .env file has DB_NAME, DB_USER, DB_PASS, DB_HOST, DB_PORT
 load_dotenv()
 
 def create_database_and_tables():
@@ -17,7 +14,7 @@ def create_database_and_tables():
     # --- Database Configuration from .env ---
     DB_NAME = os.getenv("DB_NAME", "argus_core_db")
     DB_USER = os.getenv("DB_USER", "postgres")
-    DB_PASS = os.getenv("DB_PASS") # CRITICAL: Ensure DB_PASS is set in your .env
+    DB_PASS = os.getenv("DB_PASS") 
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = os.getenv("DB_PORT", "5432")
 
@@ -36,7 +33,7 @@ def create_database_and_tables():
             host=DB_HOST,
             port=DB_PORT
         )
-        conn.autocommit = True  # Necessary for CREATE DATABASE command
+        conn.autocommit = True  
         cursor = conn.cursor()
 
         # Check if the target database already exists
@@ -65,9 +62,6 @@ def create_database_and_tables():
 
         print("Creating tables if they don't exist...")
 
-        # --- Define Table Schemas ---
-
-        # Users Table (for login/registration)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,

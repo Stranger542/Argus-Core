@@ -31,10 +31,6 @@ class AnomalyDataset(Dataset):
         self.transform = transform
         self.frames_per_clip = frames_per_clip
         self.samples = []
-
-        # Determine which folders to look for based on class_folder_mapping or ANOMALY_CLASSES
-        # If mapping is provided, iterate through the keys of the mapping (actual folder names)
-        # If not, iterate through ANOMALY_CLASSES (assuming folder names match)
         folders_to_check = class_folder_mapping.keys() if class_folder_mapping else ANOMALY_CLASSES
 
         # Iterate through each defined anomaly class to find videos

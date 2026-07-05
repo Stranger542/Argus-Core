@@ -1,13 +1,9 @@
-// src/pages/AboutPage.tsx
 import React from 'react';
-
 const AboutPage: React.FC = () => {
   return (
     <div className="page-container about-page-container">
       <h1>About Argus Core</h1>
-      
       <div className="info-card-container">
-        {/* Overview */}
         <div className="info-card">
           <h2>Overview</h2>
           <p>
@@ -16,8 +12,6 @@ const AboutPage: React.FC = () => {
             with instant alerts and evidence collection capabilities.
           </p>
         </div>
-
-        {/* Features */}
         <div className="info-card">
           <h2>Key Features</h2>
           <div className="features-grid">
@@ -47,8 +41,6 @@ const AboutPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Technology Stack */}
         <div className="info-card">
           <h2>Technology Stack</h2>
           <div className="tech-stack-grid">
@@ -74,8 +66,6 @@ const AboutPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Machine Learning */}
         <div className="info-card">
           <h2>Machine Learning</h2>
           <p>
@@ -94,8 +84,6 @@ const AboutPage: React.FC = () => {
             <p>Optimized for low-latency video analysis</p>
           </div>
         </div>
-
-        {/* Dataset Information */}
         <div className="info-card">
           <h2>Training Data</h2>
           <p>
@@ -110,8 +98,6 @@ const AboutPage: React.FC = () => {
             <p>Real-world fight detection dataset</p>
           </div>
         </div>
-
-        {/* Disclaimer */}
         <div className="info-card disclaimer">
           <h2>Important Notice</h2>
           <p>
@@ -124,5 +110,4 @@ const AboutPage: React.FC = () => {
     </div>
   );
 };
-
 export default AboutPage;
