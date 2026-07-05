@@ -85,12 +85,6 @@ python src/main.py
 
 ---
 
-## Security & Privacy
-- **Never commit your `.env` or dataset files to GitHub.**
-- The `.gitignore` is set up to protect sensitive and large files.
-
----
-
 ## Troubleshooting
 - If no alerts are triggered, try lowering `ALERT_THRESHOLD` in `main.py`.
 - If emails are not sent, check your `.env` credentials and Gmail app password.
