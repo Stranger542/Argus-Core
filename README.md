@@ -79,10 +79,6 @@ python src/main.py
 - `backend/alert_service.py` — Email alert logic
 - `backend/video_storage.py` — Evidence video saving
 - `models/` — Model weights
-- `datasets/` — Video datasets (not tracked by git)
-- `storage/` — Saved evidence videos (not tracked by git)
-- `.env` — Email credentials (not tracked by git)
-
 ---
 
 ## Troubleshooting
