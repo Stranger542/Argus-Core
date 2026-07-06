@@ -677,9 +677,85 @@ async def analyze_uploaded_video(
         "filename": safe_filename
     }
 
+import asyncio
+
+def save_live_evidence(frames_to_save, anomaly_type, score, user_email):
+    """Runs in a background thread to save video and send emails."""
+    if not frames_to_save: return
+    
+    # 1. Force absolute imports to ensure they are available in the background thread
+    import cv2
+    import os
+    import os.path as osp
+    import re
+    from datetime import datetime, timezone
+    
+    # Use absolute import path
+    from backend.app import SessionLocal, Incident, Clip, Camera
+    from backend.alert_service import send_alert
+    
+    STORAGE_DIR = os.getenv("STORAGE_DIR", "./storage")
+    db = SessionLocal()
+    
+    try:
+        # 2. Database logic
+        WEB_UI_CAMERA_ID = 1
+        cam = db.query(Camera).filter(Camera.id == WEB_UI_CAMERA_ID).first()
+        if not cam:
+            cam = Camera(id=WEB_UI_CAMERA_ID, name="Live Edge Nodes", location="Mobile")
+            db.add(cam)
+            db.commit()
+
+        inc = Incident(
+            camera_id=WEB_UI_CAMERA_ID,
+            event_type=anomaly_type,
+            score=score,
+            started_at=datetime.now(timezone.utc),
+            status="detected_from_live",
+            note="[]"
+        )
+        db.add(inc)
+        db.commit()
+        db.refresh(inc)
+
+        # 3. Save Video
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_anomaly = re.sub(r'[^a-zA-Z0-9_-]', '_', anomaly_type)
+        filename = f"live_evidence_{safe_anomaly}_{timestamp}.mp4"
+        incident_dir = osp.join(STORAGE_DIR, f"incident_{inc.id}")
+        os.makedirs(incident_dir, exist_ok=True)
+        saved_path = osp.join(incident_dir, filename)
+
+        h, w, _ = frames_to_save[0].shape
+        out = cv2.VideoWriter(saved_path, cv2.VideoWriter_fourcc(*'mp4v'), 7.0, (w, h))
+        for f in frames_to_save:
+            out.write(f)
+        out.release()
+
+        clip = Clip(incident_id=inc.id, file_path=saved_path)
+        db.add(clip)
+        db.commit()
+        
+        # 4. Email Alert - Using the explicitly imported function
+        try:
+            print(f"DEBUG: Attempting to call send_alert with email: {user_email}")
+            send_alert(
+                saved_path,
+                location="Argus Edge Node (Mobile)",
+                anomaly_type=anomaly_type,
+                additional_recipient=user_email
+            )
+            print("✅ [LIVE ALERT] Email sent successfully.")
+        except Exception as email_err:
+            print(f"⚠️ [LIVE ALERT EMAIL ERROR]: {email_err}")
+        
+    except Exception as e:
+        print(f"❌ [LIVE ALERT ERROR]: {e}")
+    finally:
+        db.close()
+
 class LiveStreamManager:
     def __init__(self):
-        # Format: { "session_id": { "desktop": WebSocket, "mobile": WebSocket, "frames": [], "queues": {...}, "alerts": {...} } }
         self.active_sessions = {}
 
     async def connect(self, websocket: WebSocket, session_id: str, client_type: str):
@@ -691,9 +767,20 @@ class LiveStreamManager:
             self.active_sessions[session_id] = {
                 "desktop": None, 
                 "mobile": None, 
-                "frames": [],
+                "frames": [],      # 16-frame AI inference buffer
+                "history": [],     # 8-second Pre-roll buffer (approx 56 frames at 7 FPS)
                 "queues": {atype: AnomalyConfidenceQueue(max_len=16) for atype in ALERT_ANOMALY_CLASSES},
-                "alerts": {atype: False for atype in ALERT_ANOMALY_CLASSES}
+                "alerts": {atype: False for atype in ALERT_ANOMALY_CLASSES},
+                
+                # NEW: State machine to handle the Post-roll recording phase
+                "post_roll": {
+                    "active": False,
+                    "frames_left": 0,
+                    "event_type": None,
+                    "score": 0.0,
+                    "buffer": [],
+                    "user_email": None
+                }
             }
             
         self.active_sessions[session_id][client_type] = websocket
@@ -703,7 +790,6 @@ class LiveStreamManager:
         if session_id in self.active_sessions:
             self.active_sessions[session_id][client_type] = None
             print(f"[WS] {client_type.capitalize()} disconnected from session {session_id}")
-            # If both leave, clean up memory
             if not self.active_sessions[session_id]["desktop"] and not self.active_sessions[session_id]["mobile"]:
                 del self.active_sessions[session_id]
                 print(f"[WS] Session {session_id} destroyed.")
@@ -715,50 +801,48 @@ async def live_stream_endpoint(
     websocket: WebSocket, 
     session_id: str, 
     client_type: str,
-    token: str = Query(None) # Grab the JWT token securely from the URL parameters
+    token: str = Query(None) 
 ):
-    # --- 1. STRICT AUTHENTICATION LAYER ---
+    # 1. STRICT AUTHENTICATION LAYER
     if not token:
-        print(f"[WS AUTH FAILED] No token provided by {client_type}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
         
     try:
-        # Decode and verify the JWT token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
+        user_email: str = payload.get("sub")
+        if user_email is None:
             raise ValueError("Invalid token payload")
     except Exception as e:
-        print(f"[WS AUTH FAILED] Invalid token for {client_type}: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    # --- 2. ACCEPT CONNECTION IF AUTH PASSES ---
+    # 2. ACCEPT CONNECTION
     await stream_manager.connect(websocket, session_id, client_type)
     
     try:
         from src.anomaly_detection import predict_anomaly
         from src.anomaly_config import ALERT_ANOMALY_CLASSES
         
+        # We assume the mobile camera captures at ~7 FPS
+        FPS = 7
+        PRE_ROLL_FRAMES = 8 * FPS   # 56 frames before alert
+        POST_ROLL_FRAMES = 8 * FPS  # 56 frames after alert
+        
         while True:
-            # Receive data from the client
             data = await websocket.receive_text()
             
-            # If the data comes from the mobile camera...
             if client_type == "mobile":
                 session = stream_manager.active_sessions.get(session_id)
-                if not session:
-                    continue # Failsafe if session was destroyed
+                if not session: continue 
                     
                 desktop_ws = session.get("desktop")
                 
-                # 1. Instantly forward the frame to the Desktop UI so the user sees the live feed
+                # Forward frame to desktop instantly
                 if desktop_ws:
                     await desktop_ws.send_json({"type": "frame", "image": data})
 
-                # 2. Process the frame for AI inference
-                # Strip the base64 prefix sent by the browser
+                # Process Image
                 header, encoded = data.split(",", 1) if "," in data else ("", data)
                 img_bytes = base64.b64decode(encoded)
                 np_arr = np.frombuffer(img_bytes, np.uint8)
@@ -766,9 +850,35 @@ async def live_stream_endpoint(
                 
                 if frame is not None:
                     resized = cv2.resize(frame, (224, 224))
-                    session["frames"].append(resized)
                     
-                    # 3. If we have 16 frames, run the 3D CNN model
+                    session["frames"].append(resized)
+                    session["history"].append(resized)
+                    
+                    # 1. Maintain the 8-second Pre-roll buffer continuously
+                    if len(session["history"]) > PRE_ROLL_FRAMES:
+                        session["history"].pop(0)
+                        
+                    # 2. Handle the Post-roll recording if an alert was triggered
+                    if session["post_roll"]["active"]:
+                        session["post_roll"]["buffer"].append(resized)
+                        session["post_roll"]["frames_left"] -= 1
+                        
+                        # Once we capture the final 8 seconds of evidence, save it!
+                        if session["post_roll"]["frames_left"] <= 0:
+                            loop = asyncio.get_running_loop()
+                            loop.run_in_executor(
+                                None, 
+                                save_live_evidence, 
+                                session["post_roll"]["buffer"].copy(), 
+                                session["post_roll"]["event_type"], 
+                                session["post_roll"]["score"], 
+                                session["post_roll"]["user_email"]
+                            )
+                            # Reset the recording state so it can catch the next anomaly
+                            session["post_roll"]["active"] = False
+                            session["post_roll"]["buffer"].clear()
+                    
+                    # 3. Run ML Inference on 16-frame batches
                     if len(session["frames"]) == 16:
                         pred_cls, prob = predict_anomaly(session["frames"])
                         prob_float = float(prob or 0.0)
@@ -781,7 +891,7 @@ async def live_stream_endpoint(
                         elif pred_cls == "Normal_Videos":
                             for q in queues.values(): q.clear()
                             
-                        # 4. Check for anomalies and alert the desktop UI
+                        # Check alerts
                         for anomaly_type in ALERT_ANOMALY_CLASSES:
                             if queues[anomaly_type].should_alert(threshold=0.5, min_hits=3):
                                 if not alerts[anomaly_type]:
@@ -792,17 +902,28 @@ async def live_stream_endpoint(
                                             "event": anomaly_type, 
                                             "confidence": prob_float
                                         })
+                                        
+                                    # --- START THE POST-ROLL RECORDING ---
+                                    # If we aren't already recording an event, lock it in
+                                    if not session["post_roll"]["active"]:
+                                        session["post_roll"]["active"] = True
+                                        session["post_roll"]["frames_left"] = POST_ROLL_FRAMES
+                                        session["post_roll"]["event_type"] = anomaly_type
+                                        session["post_roll"]["score"] = prob_float
+                                        session["post_roll"]["user_email"] = user_email
+                                        
+                                        # Seed the final buffer with the 8 seconds of history we already have
+                                        session["post_roll"]["buffer"] = session["history"].copy()
                             else:
                                 alerts[anomaly_type] = False
                                 
-                        session["frames"].clear() # Reset buffer for the next 16 frames
+                        session["frames"].clear()
 
     except WebSocketDisconnect:
         stream_manager.disconnect(websocket, session_id, client_type)
     except Exception as e:
         print(f"[WS ERROR] {e}")
         stream_manager.disconnect(websocket, session_id, client_type)
-
         
 @app.post("/api/simulate/cameras/{camera_id}") 
 def simulate_camera_run(
