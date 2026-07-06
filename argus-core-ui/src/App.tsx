@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { NavLink } from 'react-router-dom' 
 
+
 // Page Imports
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
@@ -10,8 +11,8 @@ import RegisterPage from './pages/RegisterPage'
 import AboutPage from './pages/AboutPage'
 import SettingsPage from './pages/SettingsPage'
 import IncidentDetailPage from './pages/IncidentDetailPage'
-import IncidentListPage from './pages/IncidentListPage' // <-- 1. IMPORT NEW PAGE
-
+import IncidentListPage from './pages/IncidentListPage' 
+import MobileCameraPage from './pages/MobileCameraPage';
 import './App.css'
 
 // --- PrivateRoute Component ---
@@ -120,6 +121,7 @@ function App() {
           {/* --- 3. ADD ROUTES --- */}
           <Route path="incidents" element={<IncidentListPage />} />
           <Route path="incidents/:id" element={<IncidentDetailPage />} /> 
+          <Route path="/mobile-camera/:sessionId" element={<MobileCameraPage />} />
 
           <Route path="about" element={<AboutPage />} />
           <Route path="settings" element={<SettingsPage />} />

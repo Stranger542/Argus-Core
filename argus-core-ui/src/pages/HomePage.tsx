@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './App.css';
 import { uploadVideoForAnalysis, getClip, getIncident } from '../services/api';
+import { QRCodeSVG } from 'qrcode.react';
 
 const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'upload' | 'qr'>('upload');
@@ -12,27 +13,57 @@ const HomePage: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [detectedAnomalies, setDetectedAnomalies] = useState<any[]>([]);
   const [showEmailAlertPopup, setShowEmailAlertPopup] = useState(false);
+  
+  const [sessionId, setSessionId] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  // --- SIMPLE FILE HANDLER ---
+  useEffect(() => {
+    if (activeTab === 'qr' && !sessionId) {
+      setSessionId(Math.random().toString(36).substring(7));
+    }
+  }, [activeTab, sessionId]);
+
+  // --- SECURE WEBSOCKET LISTENER ---
+  useEffect(() => {
+    if (activeTab === 'qr' && sessionId) {
+      const token = localStorage.getItem('access_token');
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      
+      // Route through the Vite proxy and pass the secure token
+      const wsUrl = `${protocol}//${window.location.host}/ws/live/${sessionId}/desktop?token=${token}`;
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'frame') {
+          if (videoRef.current) {
+             videoRef.current.src = data.image;
+          }
+        } else if (data.type === 'alert') {
+          console.warn("CRIME DETECTED:", data.event);
+          setDetectedAnomalies(prev => [...prev, { event: data.event, confidence: data.confidence, time: new Date().toISOString() }]);
+        }
+      };
+      
+      return () => ws.close(); 
+    }
+  }, [activeTab, sessionId]);
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      // Create a simple, direct local URL for the video
       setVideoUrl(URL.createObjectURL(file)); 
-      
-      // Reset UI states
       setDetectedAnomalies([]);
       setShowEmailAlertPopup(false);
       setIsPlaying(false);
     }
   };
 
-  // --- CUSTOM VIDEO CONTROLS ---
   const togglePlayPause = () => {
     if (videoRef.current) { 
       if (videoRef.current.paused) {
@@ -52,7 +83,6 @@ const HomePage: React.FC = () => {
     } 
   };
 
-  // --- ASYNC ANALYZE SUBMISSION ---
   const handleAnalyzeClick = async () => {
     if (!selectedFile) return;
     
@@ -60,17 +90,14 @@ const HomePage: React.FC = () => {
     setDetectedAnomalies([]);
 
     try {
-      // 1. Upload & Transcode (Fast)
       const response = await uploadVideoForAnalysis(selectedFile);
       const { clip_id, incident_id } = response.data;
 
       if (clip_id) {
-          // 2. Fetch the newly transcoded clip securely
           const clipResponse = await getClip(clip_id);
           const secureBlobUrl = URL.createObjectURL(clipResponse.data);
           setVideoUrl(secureBlobUrl);
           
-          // 3. Play immediately while AI runs in the background
           if (videoRef.current) {
               videoRef.current.load();
               videoRef.current.play().catch(e => console.log("Auto-play prevented", e));
@@ -78,37 +105,32 @@ const HomePage: React.FC = () => {
           }
       }
 
-      // 4. Start polling the backend for ML results
       if (incident_id) {
           let isProcessing = true;
           
           while (isProcessing) {
-              // Wait 3 seconds before checking again
               await new Promise(resolve => setTimeout(resolve, 3000));
               
               try {
                   const statusRes = await getIncident(incident_id);
                   const incident = statusRes.data;
 
-                  // If status is no longer "analyzing", the background task finished!
                   if (incident.status !== "analyzing") {
                       isProcessing = false;
                       setIsAnalyzing(false);
                       
-                      // Populate the Sidebar
                       if (incident.note) {
                           const parsedEvents = JSON.parse(incident.note);
                           setDetectedAnomalies(parsedEvents);
                       }
                       
-                      // Trigger email alert if a crime was detected
                       if (incident.status === "detected_from_upload") {
                           setShowEmailAlertPopup(true);
                       }
                   }
               } catch (pollError) {
                   console.error("Error checking status:", pollError);
-                  isProcessing = false; // Stop polling on error
+                  isProcessing = false; 
                   setIsAnalyzing(false);
               }
           }
@@ -129,10 +151,7 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="main-layout">
-     {/* Left Sidebar - Options Menu */}
       <aside className="sidebar left">
-        
-        {/* Sleek Segmented Tab Control */}
         <div style={{ 
           display: 'flex', 
           background: 'var(--bg-secondary)', 
@@ -179,7 +198,6 @@ const HomePage: React.FC = () => {
               onChange={handleFileChange}
             />
             
-            {/* Styled Upload Button matching your mockup */}
             <button 
               onClick={() => fileInputRef.current?.click()}
               style={{ 
@@ -197,7 +215,6 @@ const HomePage: React.FC = () => {
               {selectedFile ? selectedFile.name : 'Select Video File'}
             </button>
 
-            {/* Analyze Button */}
             <button 
               onClick={handleAnalyzeClick}
               disabled={!selectedFile || isAnalyzing}
@@ -216,37 +233,52 @@ const HomePage: React.FC = () => {
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '20px' }}>
-            <p style={{ color: 'var(--text-secondary)' }}>Live Camera Mode (Coming Soon)</p>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>
+              Scan with your phone to start live stream
+            </p>
+            
+          {sessionId && (
+           <div style={{ background: 'white', padding: '10px', borderRadius: '8px', display: 'inline-block' }}>
+               {/* Bake the redirect directly into the QR code! */}
+               <QRCodeSVG 
+                  value={`${window.location.origin}/login?redirect=${encodeURIComponent('/mobile-camera/' + sessionId)}`} 
+                   size={160} 
+                  />
+               </div>
+              )}
+            
+            <p style={{ marginTop: '20px', fontSize: '0.8rem', color: 'var(--accent-blue)' }}>
+              Session: {sessionId}
+            </p>
           </div>
         )}
       </aside>
 
-      {/* Center - Video Player */}
       <main className="center-video">
-        {videoUrl ? (
+        {videoUrl || activeTab === 'qr' ? (
           <>
             <div className="video-container">
-              {/* Simplest possible video tag. Tied to React state via onPlay/onPause */}
               <video 
                 ref={videoRef} 
                 className="video-player" 
                 src={videoUrl}
-                controls 
+                controls={activeTab === 'upload'} 
                 muted 
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
               />
             </div>
             
-            {/* Restored Custom Controls */}
-            <div className="video-controls">
-              <button onClick={restart} title="Restart"> ⏮ </button>
-              <button onClick={rewind} title="Rewind 10s"> ⏪ </button>
-              <button onClick={togglePlayPause} title={isPlaying ? "Pause" : "Play"}>
-                {isPlaying ? '⏸️' : '▶️'}
-              </button>
-              <button onClick={fastForward} title="Forward 10s"> ⏩ </button>
-            </div>
+            {activeTab === 'upload' && (
+              <div className="video-controls">
+                <button onClick={restart} title="Restart"> ⏮ </button>
+                <button onClick={rewind} title="Rewind 10s"> ⏪ </button>
+                <button onClick={togglePlayPause} title={isPlaying ? "Pause" : "Play"}>
+                  {isPlaying ? '⏸️' : '▶️'}
+                </button>
+                <button onClick={fastForward} title="Forward 10s"> ⏩ </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="placeholder" style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -255,7 +287,6 @@ const HomePage: React.FC = () => {
         )}
       </main>
 
-      {/* Right Sidebar - Anomalies */}
       <aside className="sidebar right">
         <h2>Analysis Results</h2>
         <ul className="timestamp-list">
@@ -269,12 +300,11 @@ const HomePage: React.FC = () => {
               </li>
             ))
           ) : (
-            <li>{selectedFile ? 'No anomalies detected.' : 'Awaiting video...'}</li>
+            <li>{selectedFile || activeTab === 'qr' ? 'No anomalies detected.' : 'Awaiting video...'}</li>
           )}
         </ul>
       </aside>
 
-      {/* Alerts */}
       {showEmailAlertPopup && (
          <div style={{ position: 'fixed', top: 20, right: 20, background: 'var(--accent-blue)', color: 'white', padding: '15px 25px', borderRadius: '8px', zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
            🚨 Alert Sent! Evidence emailed to your account.

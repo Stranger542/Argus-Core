@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 import sys
 import cv2
+import base64
 import numpy as np
 import os.path as osp 
 import random
@@ -18,6 +19,7 @@ import traceback
 import json
 import re 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header, BackgroundTasks
+from fastapi import WebSocket, WebSocketDisconnect, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -26,7 +28,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, 
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
 from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
-from jose import JWTError, jwt
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import joinedload 
@@ -173,8 +175,7 @@ def require_api_key(x_api_key: Optional[str] = Header(None)):
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid API key for edge client"
     )
-# --- MODIFIED: get_current_user now returns the User model ---
-# This is needed to inject the user object into our endpoints
+
 async def get_current_user(
     db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
 ) -> User: # <-- Set return type to User model
@@ -676,8 +677,133 @@ async def analyze_uploaded_video(
         "filename": safe_filename
     }
 
-# --- Simulation Route ---
-# --- MODIFIED: Inject current_user ---
+class LiveStreamManager:
+    def __init__(self):
+        # Format: { "session_id": { "desktop": WebSocket, "mobile": WebSocket, "frames": [], "queues": {...}, "alerts": {...} } }
+        self.active_sessions = {}
+
+    async def connect(self, websocket: WebSocket, session_id: str, client_type: str):
+        await websocket.accept()
+        if session_id not in self.active_sessions:
+            from src.anomaly_config import ALERT_ANOMALY_CLASSES
+            from src.utils import AnomalyConfidenceQueue
+            
+            self.active_sessions[session_id] = {
+                "desktop": None, 
+                "mobile": None, 
+                "frames": [],
+                "queues": {atype: AnomalyConfidenceQueue(max_len=16) for atype in ALERT_ANOMALY_CLASSES},
+                "alerts": {atype: False for atype in ALERT_ANOMALY_CLASSES}
+            }
+            
+        self.active_sessions[session_id][client_type] = websocket
+        print(f"[WS] {client_type.capitalize()} connected to session {session_id}")
+
+    def disconnect(self, websocket: WebSocket, session_id: str, client_type: str):
+        if session_id in self.active_sessions:
+            self.active_sessions[session_id][client_type] = None
+            print(f"[WS] {client_type.capitalize()} disconnected from session {session_id}")
+            # If both leave, clean up memory
+            if not self.active_sessions[session_id]["desktop"] and not self.active_sessions[session_id]["mobile"]:
+                del self.active_sessions[session_id]
+                print(f"[WS] Session {session_id} destroyed.")
+
+stream_manager = LiveStreamManager()
+
+@app.websocket("/ws/live/{session_id}/{client_type}")
+async def live_stream_endpoint(
+    websocket: WebSocket, 
+    session_id: str, 
+    client_type: str,
+    token: str = Query(None) # Grab the JWT token securely from the URL parameters
+):
+    # --- 1. STRICT AUTHENTICATION LAYER ---
+    if not token:
+        print(f"[WS AUTH FAILED] No token provided by {client_type}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+        
+    try:
+        # Decode and verify the JWT token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise ValueError("Invalid token payload")
+    except Exception as e:
+        print(f"[WS AUTH FAILED] Invalid token for {client_type}: {e}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    # --- 2. ACCEPT CONNECTION IF AUTH PASSES ---
+    await stream_manager.connect(websocket, session_id, client_type)
+    
+    try:
+        from src.anomaly_detection import predict_anomaly
+        from src.anomaly_config import ALERT_ANOMALY_CLASSES
+        
+        while True:
+            # Receive data from the client
+            data = await websocket.receive_text()
+            
+            # If the data comes from the mobile camera...
+            if client_type == "mobile":
+                session = stream_manager.active_sessions.get(session_id)
+                if not session:
+                    continue # Failsafe if session was destroyed
+                    
+                desktop_ws = session.get("desktop")
+                
+                # 1. Instantly forward the frame to the Desktop UI so the user sees the live feed
+                if desktop_ws:
+                    await desktop_ws.send_json({"type": "frame", "image": data})
+
+                # 2. Process the frame for AI inference
+                # Strip the base64 prefix sent by the browser
+                header, encoded = data.split(",", 1) if "," in data else ("", data)
+                img_bytes = base64.b64decode(encoded)
+                np_arr = np.frombuffer(img_bytes, np.uint8)
+                frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                
+                if frame is not None:
+                    resized = cv2.resize(frame, (224, 224))
+                    session["frames"].append(resized)
+                    
+                    # 3. If we have 16 frames, run the 3D CNN model
+                    if len(session["frames"]) == 16:
+                        pred_cls, prob = predict_anomaly(session["frames"])
+                        prob_float = float(prob or 0.0)
+                        
+                        queues = session["queues"]
+                        alerts = session["alerts"]
+                        
+                        if pred_cls in queues:
+                            queues[pred_cls].update(prob_float)
+                        elif pred_cls == "Normal_Videos":
+                            for q in queues.values(): q.clear()
+                            
+                        # 4. Check for anomalies and alert the desktop UI
+                        for anomaly_type in ALERT_ANOMALY_CLASSES:
+                            if queues[anomaly_type].should_alert(threshold=0.5, min_hits=3):
+                                if not alerts[anomaly_type]:
+                                    alerts[anomaly_type] = True
+                                    if desktop_ws:
+                                        await desktop_ws.send_json({
+                                            "type": "alert", 
+                                            "event": anomaly_type, 
+                                            "confidence": prob_float
+                                        })
+                            else:
+                                alerts[anomaly_type] = False
+                                
+                        session["frames"].clear() # Reset buffer for the next 16 frames
+
+    except WebSocketDisconnect:
+        stream_manager.disconnect(websocket, session_id, client_type)
+    except Exception as e:
+        print(f"[WS ERROR] {e}")
+        stream_manager.disconnect(websocket, session_id, client_type)
+
+        
 @app.post("/api/simulate/cameras/{camera_id}") 
 def simulate_camera_run(
     camera_id: int,

@@ -1,4 +1,3 @@
-// src/pages/LoginPage.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { login } from '../services/api'; 
@@ -16,12 +15,24 @@ const LoginPage: React.FC<Props> = ({ isDark }) => {
   const location = useLocation();
 
   useEffect(() => {
+    // 1. Handle Toast Messages
     if (location.state?.message) {
       setMessage(location.state.message);
       window.history.replaceState({}, document.title);
     }
-  }, [location]);
+    
+    // 2. Auto-forward if already logged in!
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      const searchParams = new URLSearchParams(location.search);
+      const redirectUrl = searchParams.get('redirect');
+      if (redirectUrl) {
+          navigate(redirectUrl, { replace: true });
+      }
+    }
+  }, [location, navigate]);
 
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -34,7 +45,15 @@ const LoginPage: React.FC<Props> = ({ isDark }) => {
     try {
       const response = await login(formData);
       localStorage.setItem('access_token', response.data.access_token);
-      navigate('/feed');
+      const searchParams = new URLSearchParams(location.search);
+      const redirectUrl = searchParams.get('redirect');
+      
+      if (redirectUrl) {
+          navigate(redirectUrl, { replace: true }); // Go to the camera!
+      } else {
+          navigate('/feed', { replace: true }); // Standard fallback
+      }
+      
     } catch (err: any) {
       console.error("Login failed:", err);
       if (err.response && (err.response.status === 401 || err.response.status === 400)) {
@@ -47,15 +66,9 @@ const LoginPage: React.FC<Props> = ({ isDark }) => {
   };
 
   return (
-    // This is the new full-page gradient container
     <div className="auth-page-gradient-bg">
-      
-      {/* This is the centered form card */}
       <form onSubmit={handleSubmit} className="auth-form">
-        
-        {/* --- 1. LOGO ADDED INSIDE THE FORM --- */}
         <img src="/argus-logo.png" alt="Argus Logo" className="auth-form-logo" />
-        
         <h2>Welcome Back</h2>
         
         {message && (
