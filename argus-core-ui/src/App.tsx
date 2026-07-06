@@ -40,13 +40,6 @@ const ProtectedLayout: React.FC<{
         </nav>
 
         <div className="header-controls">
-          <label className="theme-toggle" title="Toggle theme">
-            <input type="checkbox" checked={isDark} onChange={toggleTheme} />
-            <span className="slider">
-              <span className="icon sun">☀️</span>
-              <span className="icon moon">🌙</span>
-            </span>
-          </label>
           <button 
             onClick={handleLogout} 
             className="logout-button" 

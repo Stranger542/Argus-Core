@@ -104,6 +104,25 @@ export const getCameras = () => {
  */
 export const downloadClip = (clipId: number) => {
   return api.get(`/clips/${clipId}`, {
-    responseType: 'blob', // This is the magic! Tell Axios to expect binary data
+    responseType: 'blob', 
   });
 };
+
+export const uploadVideoForAnalysis = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  return api.post('/api/analyze/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const getClip = (clipId: number) => {
+  return api.get(`/clips/${clipId}`, { 
+    responseType: 'blob' // Tells Axios to expect a binary file, not JSON
+  });
+};
+
+export const getIncident = (incidentId: number) => api.get(`/incidents/${incidentId}`);

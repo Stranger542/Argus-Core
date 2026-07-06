@@ -17,7 +17,7 @@ import random
 import traceback
 import json
 import re 
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -532,6 +532,149 @@ def run_detection_on_video(
     "events": anomaly_events,
     "email_sent_attempted": bool(unique_anomalies_detected) # True if anomalies were found and email was tried
 } 
+
+# --- THE HEAVY AI WORKER ---
+def run_ml_background(web_video_path: str, incident_id: int, current_user_email: str, safe_filename: str):
+    db = SessionLocal() # Open a fresh database session for the background task
+    try:
+        from src.anomaly_detection import predict_anomaly
+        from src.anomaly_config import ALERT_ANOMALY_CLASSES
+        from backend.alert_service import send_alert
+        
+        print(f"\n--- [BACKGROUND THREAD] Analyzing: {safe_filename} ---")
+        
+        cap = cv2.VideoCapture(web_video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 25
+        frames_buffer = []
+        anomaly_events = []
+        
+        ALERT_CONFIDENCE_THRESHOLD = 0.5 
+        MIN_HITS_FOR_ALERT = 3         
+        FRAMES_PER_CLIP = 16
+        
+        anomaly_conf_queues = {atype: AnomalyConfidenceQueue(max_len=FRAMES_PER_CLIP) for atype in ALERT_ANOMALY_CLASSES}
+        alert_triggered_status = {atype: False for atype in ALERT_ANOMALY_CLASSES}
+        unique_anomalies_detected = set() 
+        highest_anomaly_score = 0.0
+
+        # Run Inference
+        while True:
+            ret, frame = cap.read()
+            if not ret: break
+            
+            resized = cv2.resize(frame, (224, 224))
+            frames_buffer.append(resized)
+            
+            if len(frames_buffer) == FRAMES_PER_CLIP:
+                pred_cls, prob = predict_anomaly(frames_buffer)
+                prob_float = float(prob or 0.0) 
+                
+                if pred_cls in anomaly_conf_queues:
+                    anomaly_conf_queues[pred_cls].update(prob_float)
+                    if prob_float > highest_anomaly_score:
+                        highest_anomaly_score = prob_float
+                elif pred_cls == "Normal_Videos": 
+                     for q in anomaly_conf_queues.values(): q.clear()
+                     
+                for anomaly_type in ALERT_ANOMALY_CLASSES:
+                    current_queue = anomaly_conf_queues[anomaly_type]
+                    if current_queue.should_alert(threshold=ALERT_CONFIDENCE_THRESHOLD, min_hits=MIN_HITS_FOR_ALERT):
+                        if not alert_triggered_status[anomaly_type]:
+                            anomaly_events.append({
+                                "event": anomaly_type,
+                                "confidence": prob_float if pred_cls == anomaly_type else current_queue.average(),
+                                "time": datetime.now(timezone.utc).isoformat()
+                            })
+                            alert_triggered_status[anomaly_type] = True 
+                            unique_anomalies_detected.add(anomaly_type) 
+                    else:
+                        alert_triggered_status[anomaly_type] = False
+                frames_buffer.clear()
+        cap.release()
+
+        # Handle Alerts & Database Update
+        summary_anomaly_type = "Normal_Videos"
+        final_status = "clean_upload"
+
+        if unique_anomalies_detected:
+            summary_anomaly_type = ", ".join(sorted(list(unique_anomalies_detected)))
+            final_status = "detected_from_upload"
+            try:
+                send_alert(web_video_path, location="User Uploaded Video", anomaly_type=summary_anomaly_type, additional_recipient=current_user_email)
+            except Exception as e:
+                print(f"[ERROR] Background email failed: {e}")
+
+        # Update the Incident in the database to mark it as finished
+        inc = db.query(Incident).filter(Incident.id == incident_id).first()
+        if inc:
+            inc.event_type = summary_anomaly_type
+            inc.status = final_status
+            inc.score = highest_anomaly_score
+            inc.note = json.dumps(anomaly_events)
+            db.commit()
+            print(f"✅ [BACKGROUND] Incident {incident_id} analysis complete. DB Updated.")
+
+    except Exception as e:
+        print(f"[ERROR] Background task crashed: {e}")
+    finally:
+        db.close()
+
+
+# --- THE FAST UPLOAD ROUTE ---
+@app.post("/api/analyze/upload")
+async def analyze_uploaded_video(
+    background_tasks: BackgroundTasks, # FastAPI injects the background worker here
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import subprocess
+    temp_dir = os.path.join(STORAGE_DIR, "temp_uploads")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    safe_filename = "".join(c for c in file.filename if c.isalnum() or c in ('-', '_', '.'))
+    raw_video_path = os.path.join(temp_dir, f"raw_{current_user.id}_{safe_filename}")
+    web_video_path = os.path.join(temp_dir, f"web_{current_user.id}_{safe_filename.rsplit('.', 1)[0]}.mp4")
+
+    # 1. Save and Transcode (Fast)
+    with open(raw_video_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    print(f"Transcoding {safe_filename} to web-safe format...")
+    try:
+        subprocess.run(['ffmpeg', '-y', '-i', raw_video_path, '-vcodec', 'libx264', '-preset', 'fast', '-acodec', 'aac', web_video_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"FFmpeg failed: {e}. Falling back to raw file.")
+        web_video_path = raw_video_path
+
+    # 2. Create placeholder Incident in DB immediately (Status = "analyzing")
+    from backend.app import Incident, Clip, Camera 
+    WEB_UI_CAMERA_ID = 1
+    cam = db.query(Camera).filter(Camera.id == WEB_UI_CAMERA_ID).first()
+    if not cam:
+        cam = Camera(id=WEB_UI_CAMERA_ID, name="Web Uploads", location="System")
+        db.add(cam); db.commit()
+
+    inc = Incident(
+        camera_id=WEB_UI_CAMERA_ID, 
+        event_type="Analyzing...", 
+        started_at=datetime.now(timezone.utc), 
+        status="analyzing"
+    )
+    db.add(inc); db.commit(); db.refresh(inc)
+    
+    clip = Clip(incident_id=inc.id, file_path=web_video_path)
+    db.add(clip); db.commit(); db.refresh(clip)
+
+    # 3. Hand off the heavy ML work to the background thread
+    background_tasks.add_task(run_ml_background, web_video_path, inc.id, current_user.email, safe_filename)
+
+    # 4. Return instantly so the frontend can start playing the video!
+    return {
+        "clip_id": clip.id,
+        "incident_id": inc.id,
+        "filename": safe_filename
+    }
 
 # --- Simulation Route ---
 # --- MODIFIED: Inject current_user ---
