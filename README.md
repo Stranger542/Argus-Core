@@ -51,7 +51,6 @@ SMTP_PASS=your_app_password_here
 ALERT_TO=recipient_email_address@gmail.com
 ```
 - Use a Gmail app password for `SMTP_PASS` (see Google account security settings).
-- Never commit your `.env` file to GitHub.
 
 ### 5. Model Weights
 - Place your trained model weights (e.g., `fight_classifier.pth`) in the `models/` directory.
