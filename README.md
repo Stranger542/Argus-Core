@@ -57,11 +57,19 @@ ALERT_TO=recipient_email_address@gmail.com
 - Update the model loading path in `model.py` if needed.
 
 ### 6. Run the System
+- Start the Backend
 ```
-python src/main.py
+uvicorn backend.app:app --host 0.0.0.0 --port 8080 --reload
 ```
-- The system will select a random fight video from the test set and start detection.
-- When a fight is detected, an evidence video (last N seconds) is saved and emailed.
+- Start the Frontend (with external tunnel)
+```
+# In terminal 1:
+cd argus-core-ui && npm run dev
+# In terminal 2:
+cloudflared tunnel --url http://localhost:5173
+```
+- Scan the QR Code
+- Open the Cloudflare URL on your desktop, navigate to the "Live QR" tab, and scan with your mobile camera
 
 ---
 
