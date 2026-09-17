@@ -19,8 +19,8 @@ Argus Core is a Python-based system for real-time Crime/violence detection in CC
 
 ### 1. Clone the Repository
 ```
-git clone https://github.com/YOUR-USERNAME/YOUR-REPO.git
-cd YOUR-REPO
+git clone https://github.com/Stranger542/Argus-Core.git
+cd Argus-Core
 ```
 
 ### 2. Install Python Dependencies
