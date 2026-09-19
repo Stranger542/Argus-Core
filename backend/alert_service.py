@@ -1,5 +1,6 @@
 import os
 import smtplib
+import mimetypes # <-- NEW IMPORT
 from email.message import EmailMessage
 from pathlib import Path
 from dotenv import load_dotenv
@@ -10,11 +11,12 @@ def send_alert(
     video_file_path: str, 
     location: str = "Unknown", 
     anomaly_type: str = "Anomaly",
-    additional_recipient: str | None = None  # <-- ADDED this parameter
+    additional_recipient: str | None = None,
+    image_file_path: str | None = None,  # <-- NEW PARAMETER
+    image_metadata: str | None = None    # <-- NEW PARAMETER
 ):
     """
-    Sends an email alert with an attached video clip.
-    Can now send to the main ALERT_TO address and an additional recipient (e.g., the logged-in user).
+    Sends an email alert with an attached video clip and an optional enhanced snapshot.
     """
     SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
     SMTP_PORT   = int(os.getenv("SMTP_PORT", 587))
@@ -24,13 +26,13 @@ def send_alert(
     ALERT_FROM  = SMTP_USER
 
     if not all([SMTP_USER, SMTP_PASS, ALERT_TO]):
-        print("[ERROR] Missing SMTP credentials or main recipient in environment variables. Please check your .env file.")
+        print("[ERROR] Missing SMTP credentials. Please check your .env file.")
         return
 
     recipients = [ALERT_TO]
-    if additional_recipient and additional_recipient.lower() != ALERT_TO.lower(): # Check case-insensitively
-        print(f"[INFO] Adding logged-in user to alert: {additional_recipient}")
+    if additional_recipient and additional_recipient.lower() != ALERT_TO.lower():
         recipients.append(additional_recipient)
+        
     now = datetime.datetime.now()
     formatted_datetime = now.strftime("%A, %B %d, %Y at %I:%M %p")
 
@@ -39,43 +41,59 @@ def send_alert(
     msg['From'] = ALERT_FROM
     msg['To'] = ", ".join(recipients)
     
+    # Update email body with image metadata
     email_body = (
         f"Automatic alert from your Argus Core smart-CCTV system.\n\n"
         f"• Anomaly Type(s): {anomaly_type}\n"
         f"• Location         : {location}\n"
-        f"• Clip             : {Path(video_file_path).name}\n"
-        f"• Time             : {formatted_datetime}\n\n"
-        f"Please review the attached footage and take action if necessary."
+        f"• Time             : {formatted_datetime}\n"
     )
+    if image_metadata:
+        email_body += f"• Snapshot Info    : {image_metadata}\n"
+        
+    email_body += f"\nPlease review the attached evidence and take action if necessary."
     msg.set_content(email_body)
 
-    # Attach the video file
+    # 1. Attach the Video File
     try:
-        file_path_obj = Path(video_file_path)
-        if not file_path_obj.exists():
-            print(f"[ERROR] Video file not found: {video_file_path}")
-            msg.set_content(f"An anomaly was detected at {location} on {formatted_datetime}. Video footage could not be attached (file not found).")
-        else:
-            with open(file_path_obj, "rb") as fp:
+        vid_path_obj = Path(video_file_path)
+        if vid_path_obj.exists():
+            with open(vid_path_obj, "rb") as fp:
                 msg.add_attachment(
                     fp.read(),
                     maintype="video",
                     subtype="mp4",
-                    filename=file_path_obj.name,
+                    filename=vid_path_obj.name,
                 )
     except Exception as e:
         print(f"[ERROR] Error attaching video file: {e}")
-        msg.set_content(f"An anomaly was detected at {location} on {formatted_datetime}. Video footage could not be attached due to an error.")
+
+    # 2. Attach the Enhanced Image File
+    if image_file_path:
+        try:
+            img_path_obj = Path(image_file_path)
+            if img_path_obj.exists():
+                ctype, encoding = mimetypes.guess_type(str(img_path_obj))
+                if ctype is None or encoding is not None:
+                    ctype = 'application/octet-stream'
+                maintype, subtype = ctype.split('/', 1)
+                with open(img_path_obj, "rb") as fp:
+                    msg.add_attachment(
+                        fp.read(),
+                        maintype=maintype,
+                        subtype=subtype,
+                        filename=img_path_obj.name,
+                    )
+        except Exception as e:
+            print(f"[ERROR] Error attaching image file: {e}")
 
     print(f"Sending alert e-mail to {', '.join(recipients)} ...")
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
             smtp.starttls()
             smtp.login(SMTP_USER, SMTP_PASS)
-            # Use send_message which handles the recipient list correctly
             smtp.send_message(msg) 
-        print(f"✅ Alert e-mail sent to {', '.join(recipients)} for {anomaly_type} at {location} ({formatted_datetime}).")
-    # --- END OF CHANGE ---
+        print(f"✅ Alert e-mail sent to {', '.join(recipients)}.")
     except Exception as e:
         print(f"[ERROR] Failed to send alert e-mail: {e}")
         print("Please check your email credentials (App password if 2FA is on), SMTP server settings, and internet connection.")

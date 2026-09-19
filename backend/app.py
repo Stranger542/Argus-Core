@@ -4,7 +4,7 @@ Argus-Core Production Backend
 ---------------------------------------
 Version: 0.2.8 (Send alerts to logged-in user)
 """
-# ... (all imports are the same) ...
+
 import os
 import shutil
 from datetime import datetime, timezone, timedelta
@@ -178,7 +178,7 @@ def require_api_key(x_api_key: Optional[str] = Header(None)):
 
 async def get_current_user(
     db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
-) -> User: # <-- Set return type to User model
+) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -196,13 +196,12 @@ async def get_current_user(
     user = get_user(db, email=token_data.email)
     if user is None:
         raise credentials_exception
-    return user # <-- Return the full user object
+    return user 
 
 app = FastAPI(title="Argus-Core Backend", version="0.2.8") # Version bump
 
 app.add_middleware(
     CORSMiddleware,
-    # ... (middleware config is unchanged) ...
     allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
@@ -211,7 +210,6 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    # ... (startup logic is unchanged) ...
     Base.metadata.create_all(bind=engine) 
     datasets_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', 'datasets'))
     if not osp.isdir(datasets_dir):
@@ -229,7 +227,6 @@ def health():
     return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
 
 # --- Authentication Routes ---
-# ... (register, token routes are unchanged) ...
 @app.post("/users/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = get_user(db, email=user.email)
@@ -256,13 +253,11 @@ async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- MODIFIED: /users/me now uses the dependency correctly ---
 @app.get("/users/me", response_model=UserOut)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 # --- Edge Client Routes (API Key) ---
-# ... (create_incident, upload_clip routes are unchanged) ...
 @app.post("/events", response_model=IncidentOut, status_code=201, dependencies=[Depends(require_api_key)])
 def create_incident(payload: IncidentCreate, db: Session = Depends(get_db)):
     cam = db.query(Camera).filter(Camera.id == payload.camera_id).first()
@@ -297,7 +292,6 @@ def upload_clip(incident_id: int = Form(...), file: UploadFile = File(...), db: 
     return {"status": "success", "clip_id": clip.id}
 
 # --- Web App Data Routes (User Login) ---
-# --- MODIFIED: All protected routes now inject current_user ---
 @app.get("/incidents", response_model=List[IncidentOut])
 def list_incidents(
     db: Session = Depends(get_db), 
@@ -339,7 +333,6 @@ def download_clip(
     return FileResponse(path=clip.file_path, filename=osp.basename(clip.file_path))
 
 # --- Video Serving Route ---
-# ... (_pick_random_video, get_random_video routes are unchanged) ...
 def _pick_random_video(base_dir: str = "datasets/ucf_crime") -> str:
     base_abs = osp.abspath(osp.join(osp.dirname(__file__), '..', base_dir))
     if not osp.exists(base_abs): return ""
@@ -360,7 +353,6 @@ def get_random_video():
     return {"video_url": video_url}
 
 # --- Main Detection Route ---
-# --- MODIFIED: Inject current_user ---
 @app.post("/api/detect") 
 def run_detection_on_video(
     request: DetectRequest,
@@ -374,7 +366,6 @@ def run_detection_on_video(
     except ImportError as e: raise HTTPException(500, detail=f"Detection components missing: {e}")
     except Exception as e: raise HTTPException(500, detail=f"Import error: {e}")
 
-    # ... (Config, Video Validation, Init... are unchanged) ...
     ALERT_CONFIDENCE_THRESHOLD = 0.5 
     MIN_HITS_FOR_ALERT = 3         
     FRAMES_PER_CLIP = 16           
@@ -405,10 +396,8 @@ def run_detection_on_video(
 
     print(f"\n--- Starting SUSTAINED detection for: {osp.basename(absolute_video_path)} ---")
 
-    # --- Video Processing Loop (Unchanged) ---
     try:
         while True:
-            # ... (loop content is unchanged) ...
             ret, frame = cap.read()
             if not ret: break
             full_video_frames_buffer.append(frame.copy()) 
@@ -680,17 +669,16 @@ async def analyze_uploaded_video(
 import asyncio
 
 def save_live_evidence(frames_to_save, anomaly_type, score, user_email):
-    """Runs in a background thread to save video and send emails."""
+    """Runs in a background thread to save video, extract enhanced frame, and send emails."""
     if not frames_to_save: return
     
-    # 1. Force absolute imports to ensure they are available in the background thread
     import cv2
     import os
     import os.path as osp
     import re
+    import subprocess
     from datetime import datetime, timezone
     
-    # Use absolute import path
     from backend.app import SessionLocal, Incident, Clip, Camera
     from backend.alert_service import send_alert
     
@@ -698,7 +686,7 @@ def save_live_evidence(frames_to_save, anomaly_type, score, user_email):
     db = SessionLocal()
     
     try:
-        # 2. Database logic
+        # --- DB Setup ---
         WEB_UI_CAMERA_ID = 1
         cam = db.query(Camera).filter(Camera.id == WEB_UI_CAMERA_ID).first()
         if not cam:
@@ -714,41 +702,80 @@ def save_live_evidence(frames_to_save, anomaly_type, score, user_email):
             status="detected_from_live",
             note="[]"
         )
-        db.add(inc)
-        db.commit()
-        db.refresh(inc)
+        db.add(inc); db.commit(); db.refresh(inc)
 
-        # 3. Save Video
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_anomaly = re.sub(r'[^a-zA-Z0-9_-]', '_', anomaly_type)
-        filename = f"live_evidence_{safe_anomaly}_{timestamp}.mp4"
         incident_dir = osp.join(STORAGE_DIR, f"incident_{inc.id}")
         os.makedirs(incident_dir, exist_ok=True)
-        saved_path = osp.join(incident_dir, filename)
+
+        # --- 1. Video Processing ---
+        filename = f"live_evidence_{safe_anomaly}_{timestamp}.mp4"
+        raw_path = osp.join(incident_dir, f"raw_{filename}")
+        final_path = osp.join(incident_dir, filename)
 
         h, w, _ = frames_to_save[0].shape
-        out = cv2.VideoWriter(saved_path, cv2.VideoWriter_fourcc(*'mp4v'), 7.0, (w, h))
+        out = cv2.VideoWriter(raw_path, cv2.VideoWriter_fourcc(*'mp4v'), 15.0, (w, h))
         for f in frames_to_save:
             out.write(f)
         out.release()
 
-        clip = Clip(incident_id=inc.id, file_path=saved_path)
-        db.add(clip)
-        db.commit()
-        
-        # 4. Email Alert - Using the explicitly imported function
         try:
-            print(f"DEBUG: Attempting to call send_alert with email: {user_email}")
+            subprocess.run([
+                'ffmpeg', '-y', '-i', raw_path,
+                '-vcodec', 'libx264', '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart', '-preset', 'fast', '-crf', '26',
+                final_path
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if osp.exists(raw_path):
+                os.remove(raw_path) 
+        except Exception:
+            final_path = raw_path
+
+        clip = Clip(incident_id=inc.id, file_path=final_path)
+        db.add(clip); db.commit()
+
+        # --- 2. Image Extraction & CV Enhancement ---
+        # The anomaly trigger frame sits directly in the middle of our pre/post buffer
+        trigger_idx = len(frames_to_save) // 2
+        trigger_frame = frames_to_save[trigger_idx].copy()
+
+        # Illumination correction: CLAHE on L channel of LAB color space
+        lab = cv2.cvtColor(trigger_frame, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        cl = clahe.apply(l)
+        enhanced_lab = cv2.merge((cl, a, b))
+        enhanced_frame = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
+
+        # Edge clarity: Unsharp Masking using Gaussian Blur
+        gaussian_blur = cv2.GaussianBlur(enhanced_frame, (9, 9), 10.0)
+        enhanced_frame = cv2.addWeighted(enhanced_frame, 1.5, gaussian_blur, -0.5, 0)
+
+        # Apply Timestamp Overlay
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cv2.putText(enhanced_frame, f"{timestamp_str} | {anomaly_type}", (20, 40), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2, cv2.LINE_AA)
+
+        image_filename = f"snapshot_{safe_anomaly}_{timestamp}.jpg"
+        image_path = osp.join(incident_dir, image_filename)
+        cv2.imwrite(image_path, enhanced_frame)
+        
+        cv_metadata = "Frame dynamically enhanced using Contrast Limited Adaptive Histogram Equalization (CLAHE) and Laplacian-based Unsharp Masking."
+
+        # --- 3. Email Alert ---
+        try:
             send_alert(
-                saved_path,
+                final_path,
                 location="Argus Edge Node (Mobile)",
                 anomaly_type=anomaly_type,
-                additional_recipient=user_email
+                additional_recipient=user_email,
+                image_file_path=image_path,
+                image_metadata=cv_metadata
             )
-            print("✅ [LIVE ALERT] Email sent successfully.")
         except Exception as email_err:
             print(f"⚠️ [LIVE ALERT EMAIL ERROR]: {email_err}")
-        
+            
     except Exception as e:
         print(f"❌ [LIVE ALERT ERROR]: {e}")
     finally:
@@ -776,7 +803,7 @@ class LiveStreamManager:
                 "post_roll": {
                     "active": False,
                     "frames_left": 0,
-                    "event_type": None,
+                    "event_type": set(), # <-- Initialize as an empty set to accumulate events
                     "score": 0.0,
                     "buffer": [],
                     "user_email": None
@@ -824,10 +851,10 @@ async def live_stream_endpoint(
         from src.anomaly_detection import predict_anomaly
         from src.anomaly_config import ALERT_ANOMALY_CLASSES
         
-        # We assume the mobile camera captures at ~7 FPS
-        FPS = 7
-        PRE_ROLL_FRAMES = 8 * FPS   # 56 frames before alert
-        POST_ROLL_FRAMES = 8 * FPS  # 56 frames after alert
+        # Increased to 15 FPS for smooth video evidence
+        FPS = 15
+        PRE_ROLL_FRAMES = 8 * FPS   # 120 frames before alert
+        POST_ROLL_FRAMES = 8 * FPS  # 120 frames after alert
         
         while True:
             data = await websocket.receive_text()
@@ -849,10 +876,13 @@ async def live_stream_endpoint(
                 frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
                 
                 if frame is not None:
-                    resized = cv2.resize(frame, (224, 224))
-                    
-                    session["frames"].append(resized)
-                    session["history"].append(resized)
+                    # Resize only for the AI model tensor
+                    ai_frame = cv2.resize(frame, (224, 224))
+                    session["frames"].append(ai_frame)
+
+                    # Keep higher resolution for visual video evidence
+                    evidence_frame = cv2.resize(frame, (640,640)) 
+                    session["history"].append(evidence_frame)
                     
                     # 1. Maintain the 8-second Pre-roll buffer continuously
                     if len(session["history"]) > PRE_ROLL_FRAMES:
@@ -860,29 +890,39 @@ async def live_stream_endpoint(
                         
                     # 2. Handle the Post-roll recording if an alert was triggered
                     if session["post_roll"]["active"]:
-                        session["post_roll"]["buffer"].append(resized)
+                        session["post_roll"]["buffer"].append(evidence_frame)
                         session["post_roll"]["frames_left"] -= 1
                         
                         # Once we capture the final 8 seconds of evidence, save it!
                         if session["post_roll"]["frames_left"] <= 0:
+                            # Coalesce multiple anomaly types into a single string
+                            consolidated_events = ", ".join(sorted(list(session["post_roll"]["event_type"])))
+                            
                             loop = asyncio.get_running_loop()
                             loop.run_in_executor(
                                 None, 
                                 save_live_evidence, 
                                 session["post_roll"]["buffer"].copy(), 
-                                session["post_roll"]["event_type"], 
+                                consolidated_events, 
                                 session["post_roll"]["score"], 
                                 session["post_roll"]["user_email"]
                             )
-                            # Reset the recording state so it can catch the next anomaly
+                            # Reset the recording state so it can catch the next sequence
                             session["post_roll"]["active"] = False
                             session["post_roll"]["buffer"].clear()
+                            session["post_roll"]["event_type"] = set()
                     
-                    # 3. Run ML Inference on 16-frame batches
+                    # 3. Run ML Inference on 16-frame batches asynchronously 
                     if len(session["frames"]) == 16:
-                        pred_cls, prob = predict_anomaly(session["frames"])
-                        prob_float = float(prob or 0.0)
+                        # Offload to prevent event loop starvation and stuttering
+                        loop = asyncio.get_running_loop()
+                        pred_cls, prob = await loop.run_in_executor(
+                            None, 
+                            predict_anomaly, 
+                            session["frames"].copy()
+                        )
                         
+                        prob_float = float(prob or 0.0)
                         queues = session["queues"]
                         alerts = session["alerts"]
                         
@@ -903,17 +943,25 @@ async def live_stream_endpoint(
                                             "confidence": prob_float
                                         })
                                         
-                                    # --- START THE POST-ROLL RECORDING ---
-                                    # If we aren't already recording an event, lock it in
+                                    # --- START OR EXTEND THE POST-ROLL RECORDING ---
                                     if not session["post_roll"]["active"]:
+                                        # First anomaly detected: lock it in
                                         session["post_roll"]["active"] = True
                                         session["post_roll"]["frames_left"] = POST_ROLL_FRAMES
-                                        session["post_roll"]["event_type"] = anomaly_type
+                                        session["post_roll"]["event_type"] = {anomaly_type} 
                                         session["post_roll"]["score"] = prob_float
                                         session["post_roll"]["user_email"] = user_email
                                         
-                                        # Seed the final buffer with the 8 seconds of history we already have
+                                        # Seed the final buffer with the 8 seconds of history
                                         session["post_roll"]["buffer"] = session["history"].copy()
+                                    else:
+                                        # Buffer extension: A new anomaly fired while we are already recording
+                                        session["post_roll"]["event_type"].add(anomaly_type) 
+                                        session["post_roll"]["frames_left"] = POST_ROLL_FRAMES 
+                                        
+                                        # Keep the highest confidence score for the batch
+                                        if prob_float > session["post_roll"]["score"]:
+                                            session["post_roll"]["score"] = prob_float
                             else:
                                 alerts[anomaly_type] = False
                                 
@@ -938,8 +986,7 @@ def simulate_camera_run(
         from backend.alert_service import send_alert as send_email_alert 
     except ImportError as e: raise HTTPException(500, detail=f"Sim components missing: {e}")
     except Exception as e: raise HTTPException(500, detail=f"Sim import error: {e}")
-    
-    # ... (rest of simulation logic is unchanged) ...
+
     cam = db.query(Camera).filter(Camera.id == camera_id).first();
     if not cam: raise HTTPException(404, detail=f"Camera {camera_id} not found.")
     video_path = _pick_random_video()
